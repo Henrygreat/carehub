@@ -129,6 +129,26 @@ The release-profile `migrate` service runs `prisma migrate deploy` explicitly an
    The production runtime image intentionally omits development tooling. Do not run `prisma migrate reset`, `db push`, or the development seed against production.
 6. Deploy the application, verify `https://<your-domain>/api/health`, and confirm Resend delivery using a controlled test mailbox. Keep database storage persistent. Sprint 1 does not store uploaded/private documents; if object storage is added later, use private buckets and tenant-scoped access policies.
 
+### Create the first administrator (one-time)
+
+Production starts with no users: the development seed refuses to run when `NODE_ENV=production`, and there is no default account or public registration. Create the first `ORG_ADMIN` once, after migrations have been applied (`/api/health` must report `ok`).
+
+In Coolify, open the application, choose **Terminal**, select the running app container, and run:
+
+```sh
+node scripts/bootstrap-admin.mjs
+```
+
+The script prompts for the administrator's email, full name and password (hidden, with confirmation). To avoid prompts, set `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and `BOOTSTRAP_ADMIN_PASSWORD` for that one command instead, and never save the password in Coolify's stored environment variables:
+
+```sh
+BOOTSTRAP_ADMIN_EMAIL='you@example.co.uk' BOOTSTRAP_ADMIN_NAME='Your Name' BOOTSTRAP_ADMIN_PASSWORD='a-long-unique-passphrase' node scripts/bootstrap-admin.mjs
+```
+
+Optional `BOOTSTRAP_ORG_NAME` (default `Falcon Carers`) and `BOOTSTRAP_ORG_SLUG` (default `falcon-carers`) select the organisation. The script creates the organisation if the slug does not exist, creates the user, links them with the `ORG_ADMIN` role, and records an audit event. It only inserts data, and it stops without changes if the email already exists or the organisation already has an administrator, so it cannot overwrite accounts or be reused to add a second administrator. It never prints the password. Passwords must be 12-128 characters.
+
+Then open `https://<your-domain>/login` and sign in with that email and password. Further users are added from **Settings → Users** through invitations. Locally, with a real `DATABASE_URL` in `.env`, use `npm run db:bootstrap-admin`.
+
 ### Environment variables
 
 | Variable | Required | Purpose |

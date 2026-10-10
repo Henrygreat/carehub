@@ -20,6 +20,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/database-operation.ts migrate",
+    "db:bootstrap-admin": "node --env-file-if-exists=.env scripts/bootstrap-admin.mjs",
     "db:seed": "tsx scripts/database-operation.ts seed"
   },
   "dependencies": {
