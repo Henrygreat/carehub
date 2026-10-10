@@ -1,0 +1,56 @@
+{
+  "name": "falconcare-hub",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
+    "@prisma/client": "^6.19.3",
+    "@radix-ui/react-slot": "^1.4.0",
+    "bcryptjs": "^3.0.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.55.0",
+    "next": "16.4.0",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-hook-form": "^7.89.0",
+    "resend": "^6.32.1",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.64.0",
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^18.0.7",
+    "eslint": "^9",
+    "globals": "^17.13.0",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
+  }
+}

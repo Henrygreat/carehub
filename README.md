@@ -14,19 +14,19 @@ FalconCare Hub is a multi-tenant workforce-management foundation for UK domicili
 
 Requirements: Node.js 22.12+, npm, and Docker with Compose.
 
-1. Copy `.env.example` to `.env` and replace `AUTH_SECRET`, `DEV_ADMIN_PASSWORD`, and the local PostgreSQL password in both `POSTGRES_PASSWORD` and `DATABASE_URL`. For example, generate a secret with:
+1. Copy `.env.example` to `.env` and replace `AUTH_SECRET`, `DEV_ADMIN_PASSWORD`, and the local PostgreSQL password in both `POSTGRES_PASSWORD` and `DATABASE_URL`. Set `RESEND_API_KEY` and `EMAIL_FROM` for delivery. For local preview-only use, the development preview page works without a Resend API key. For example, generate a secret with:
 
    ```powershell
    node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
    ```
 
-2. Start PostgreSQL and the local Mailpit email catcher:
+2. Start PostgreSQL:
 
    ```powershell
-   docker compose up -d db mailpit
+   docker compose up -d db
    ```
 
-   Mailpit's inbox is available at <http://localhost:8025>.
+   To preview the invitation and password-reset designs without sending email or using real staff information, start the app in development and open <http://localhost:3000/dev/email-preview>. That page uses fictional data and nonfunctional preview-only links.
 
 3. Install dependencies, generate Prisma Client, apply migrations, and create fictional demo data:
 
@@ -45,7 +45,7 @@ Requirements: Node.js 22.12+, npm, and Docker with Compose.
    npm run dev
    ```
 
-   Sign in using the development credentials from `.env`. Public self-registration is not available.
+   Sign in using the development credentials from `.env`. Public self-registration is not available. Sending actual transactional emails requires a valid Resend API key and verified sender.
 
 ## Database and tenant model
 
@@ -67,7 +67,7 @@ Every protected request resolves an authenticated, active membership server-side
 - **CARE_WORKER**: view their own profile and update only its contact email/phone.
 - **PLATFORM_ADMIN**: platform role grants organisation metadata only; it does not bypass membership or expose tenant staff data.
 
-API writes validate same-origin requests, use Zod schemas, and create tenant-scoped audit events. Invitations and password-reset links use random single-use tokens; only SHA-256 token hashes are persisted. Passwords use bcrypt. Auth.js handles sign-in CSRF; custom cookie-authenticated writes require a matching `Origin`.
+API writes validate same-origin requests, use Zod schemas, and create tenant-scoped audit events. Invitations and password-reset links use random single-use tokens; only SHA-256 token hashes are persisted. Passwords use bcrypt. Transactional invitation and reset emails are sent with the official Resend Node SDK from server-only code. Auth.js handles sign-in CSRF; custom cookie-authenticated writes require a matching `Origin`.
 
 ## Tests and checks
 
@@ -88,19 +88,19 @@ For local container deployment:
 
 ```powershell
 Copy-Item .env.example .env
-# Edit .env: set strong local POSTGRES_PASSWORD and AUTH_SECRET values, and keep the local password URL-safe in DATABASE_URL.
+# Edit .env: set strong local POSTGRES_PASSWORD and AUTH_SECRET values, set RESEND_API_KEY for delivery, and use a verified sender in EMAIL_FROM.
 docker compose --profile release run --rm migrate
 docker compose up --build -d
 ```
 
-The release-profile `migrate` service runs `prisma migrate deploy` explicitly and is not part of application startup. PostgreSQL data is persisted in the named `postgres_data` volume. The application listens on port 3000 by default; `/api/health` checks database connectivity. Mailpit captures development email.
+The release-profile `migrate` service runs `prisma migrate deploy` explicitly and is not part of application startup. PostgreSQL data is persisted in the named `postgres_data` volume. The application listens on port 3000 by default; `/api/health` checks database connectivity. Local HTML email previews are available at `/dev/email-preview` while running the Next.js development server; they never call Resend and contain no real staff information.
 
 ## Coolify deployment
 
 1. Provision PostgreSQL in Coolify (or connect an existing managed PostgreSQL service). Enable persistent database storage and backups. Use a private/internal connection address where available.
 2. Create a Dockerfile-based application resource pointing to this repository and `Dockerfile`. Expose container port `3000`.
 3. Configure the public HTTPS domain in Coolify. Set `APP_URL` and `AUTH_URL` to that exact origin (for example, `https://care.example.co.uk`) and set `AUTH_TRUST_HOST=true`.
-4. Add the production environment values below. Use a unique high-entropy `AUTH_SECRET`; do not use `.env.example` values. Configure a real SMTP relay and sender domain; do not use Mailpit for production email.
+4. Add the production environment values below. Use a unique high-entropy `AUTH_SECRET`; do not use `.env.example` values. Create a Resend API key and verify the sender domain in Resend. Publish the SPF and DKIM DNS records Resend provides, wait for domain verification, and set `EMAIL_FROM` to an address on that verified domain. Keep the Resend key in Coolify's secret environment settings.
 5. Before promoting a release, take a database backup and run the release operation once against the production database:
 
    ```sh
@@ -115,7 +115,7 @@ The release-profile `migrate` service runs `prisma migrate deploy` explicitly an
    ```
 
    The production runtime image intentionally omits development tooling. Do not run `prisma migrate reset`, `db push`, or the development seed against production.
-6. Deploy the application, verify `https://<your-domain>/api/health`, and confirm SMTP delivery. Keep database storage persistent. Sprint 1 does not store uploaded/private documents; if object storage is added later, use private buckets and tenant-scoped access policies.
+6. Deploy the application, verify `https://<your-domain>/api/health`, and confirm Resend delivery using a controlled test mailbox. Keep database storage persistent. Sprint 1 does not store uploaded/private documents; if object storage is added later, use private buckets and tenant-scoped access policies.
 
 ### Environment variables
 
@@ -126,21 +126,15 @@ The release-profile `migrate` service runs `prisma migrate deploy` explicitly an
 | `APP_URL` | Yes | Canonical public application origin, used for CSRF origin checks and email links. |
 | `AUTH_URL` | Recommended | Canonical Auth.js URL behind a reverse proxy. |
 | `AUTH_TRUST_HOST` | Yes in Coolify | Set `true` when deployed behind Coolify's trusted proxy. |
-| `SMTP_HOST` | Yes for email | SMTP host. Local Compose points to Mailpit; production must use a real provider. |
-| `SMTP_PORT` | Yes for email | SMTP port. |
-| `SMTP_SECURE` | Yes for email | `true` for implicit TLS, typically on port 465. |
-| `SMTP_STARTTLS` | Yes for email | Set `true` to require SMTP STARTTLS, typically on port 587. |
-| `SMTP_USER`, `SMTP_PASSWORD` | Provider-dependent | SMTP credentials. Keep them in the deployment secret store. |
-| `EMAIL_FROM` | Yes for email | Verified sender address. |
+| `RESEND_API_KEY` | Yes for email delivery | Resend API key. Server-only secret; never expose it through a `NEXT_PUBLIC_` variable or client component. |
+| `EMAIL_FROM` | Yes for email delivery | Sender identity on a domain verified in Resend, for example `FalconCare Hub <notifications@care.example.co.uk>`. |
 | `NODE_ENV` | Runtime | Set to `production` in deployed environments. |
 | `DEV_ADMIN_EMAIL`, `DEV_ADMIN_PASSWORD` | Development only | Seed administrator credentials; password must be at least 12 characters. Never set these in production. |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Local Compose only | Credentials for the local PostgreSQL container. |
 
 ## Sprint 1 scope notes
 
-- Invitation and password-reset delivery depends on a configured SMTP server. In local Compose, messages are inspected in Mailpit.
+- Invitation and password-reset delivery requires a configured Resend key and verified sender. The development preview page displays branded examples with synthetic data and never sends email.
 - Memberships are resolved to the first active organisation by default. API clients may select another organisation only with `x-active-organisation` when the authenticated user has a corresponding active membership.
 - Platform-level organisation provisioning, organisation deletion, user role-change administration beyond invitation assignments, and audit-log browsing are not exposed as UI workflows in this sprint.
 - No care visits, scheduling, payroll, medication, AI, or WhatsApp functionality is included.
-#   c a r e h u b  
- 

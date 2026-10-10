@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLATFORM_ADMIN
+  ORG_ADMIN
+  MANAGER
+  COORDINATOR
+  CARE_WORKER
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  ZERO_HOURS
+  CONTRACTOR
+  TEMPORARY
+}
+
+model Organisation {
+  id            String             @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String             @unique
+  brandName     String?
+  brandColour   String             @default("#0f766e")
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  memberships   Membership[]
+  staffProfiles StaffProfile[]
+  employment    EmploymentRecord[]
+  invitations   Invitation[]
+  auditLogs     AuditLog[]
+
+  @@map("organisations")
+}
+
+model User {
+  id                  String               @id @default(uuid()) @db.Uuid
+  name                String
+  email               String               @unique
+  passwordHash        String
+  emailVerified       DateTime?
+  disabledAt          DateTime?
+  sessionVersion      Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  memberships         Membership[]
+  passwordResetTokens PasswordResetToken[]
+  auditEvents         AuditLog[]
+
+  @@map("users")
+}
+
+model Membership {
+  id              String         @id @default(uuid()) @db.Uuid
+  userId          String         @db.Uuid
+  organisationId  String         @db.Uuid
+  role            Role
+  active          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation    Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  staffProfiles   StaffProfile[] @relation("StaffMembership")
+  sentInvitations Invitation[]   @relation("InvitedBy")
+  auditLogs       AuditLog[]
+
+  @@unique([userId, organisationId])
+  @@unique([id, organisationId])
+  @@index([organisationId, role, active])
+  @@map("memberships")
+}
+
+model StaffProfile {
+  id                    String             @id @default(uuid()) @db.Uuid
+  organisationId        String             @db.Uuid
+  membershipUserId      String?            @db.Uuid
+  employeeNumber        String
+  firstName             String
+  lastName              String
+  email                 String
+  phone                 String?
+  employmentStatus      EmploymentStatus   @default(ACTIVE)
+  employmentType        EmploymentType     @default(FULL_TIME)
+  jobTitle              String
+  startDate             DateTime           @db.Date
+  contractedWeeklyHours Decimal            @db.Decimal(5, 2)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  organisation          Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  membership            Membership?        @relation("StaffMembership", fields: [membershipUserId, organisationId], references: [userId, organisationId], onDelete: Restrict)
+  employmentRecords     EmploymentRecord[]
+
+  @@unique([employeeNumber, organisationId])
+  @@unique([id, organisationId])
+  @@unique([membershipUserId, organisationId])
+  @@index([organisationId, lastName, firstName])
+  @@index([organisationId, employmentStatus])
+  @@map("staff_profiles")
+}
+
+model EmploymentRecord {
+  id             String         @id @default(uuid()) @db.Uuid
+  organisationId String         @db.Uuid
+  staffProfileId String         @db.Uuid
+  title          String
+  employmentType EmploymentType
+  startDate      DateTime       @db.Date
+  endDate        DateTime?      @db.Date
+  weeklyHours    Decimal        @db.Decimal(5, 2)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organisation   Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  staffProfile   StaffProfile   @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Restrict)
+
+  @@unique([staffProfileId, organisationId, startDate])
+  @@index([organisationId, staffProfileId])
+  @@map("employment_records")
+}
+
+model Invitation {
+  id                    String       @id @default(uuid()) @db.Uuid
+  organisationId        String       @db.Uuid
+  invitedByMembershipId String       @db.Uuid
+  email                 String
+  role                  Role
+  tokenHash             String       @unique
+  expiresAt             DateTime
+  acceptedAt            DateTime?
+  createdAt             DateTime     @default(now())
+  organisation          Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  invitedBy             Membership   @relation("InvitedBy", fields: [invitedByMembershipId, organisationId], references: [id, organisationId], onDelete: Restrict)
+
+  @@index([organisationId, email])
+  @@map("invitations")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model RateLimitBucket {
+  key         String   @id
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@index([windowStart])
+  @@map("rate_limit_buckets")
+}
+
+model AuditLog {
+  id                String       @id @default(uuid()) @db.Uuid
+  organisationId    String       @db.Uuid
+  actorUserId       String?      @db.Uuid
+  actorMembershipId String?      @db.Uuid
+  action            String
+  entityType        String
+  entityId          String?
+  metadata          Json?
+  createdAt         DateTime     @default(now())
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  actor             User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  membership        Membership?  @relation(fields: [actorMembershipId, organisationId], references: [id, organisationId], onDelete: Restrict)
+
+  @@index([organisationId, createdAt])
+  @@index([organisationId, entityType, entityId])
+  @@map("audit_logs")
+}
