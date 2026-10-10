@@ -4,16 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run prisma:generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run prisma:generate && tsc --noEmit",
+    "prisma": "prisma",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:migrate": "tsx scripts/database-operation.ts migrate",
+    "db:seed": "tsx scripts/database-operation.ts seed"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

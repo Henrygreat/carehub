@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { enforceRateLimit, enforceRequestRateLimit } from "@/lib/rate-limit";
 import { createSecretToken, hashSecretToken } from "@/lib/tokens";
 import { passwordResetRequestSchema } from "@/lib/validation";
+import { requireAppUrl } from "@/lib/environment";
 
 const genericResponse = {
   message: "If an account matches that email, password reset instructions will be sent.",
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     });
     const url = new URL(
       `/reset-password#token=${encodeURIComponent(token)}`,
-      process.env.APP_URL,
+      requireAppUrl(process.env.APP_URL),
     ).toString();
     try {
       await sendPasswordResetEmail({

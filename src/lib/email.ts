@@ -4,6 +4,7 @@ import {
   renderInvitationEmail,
   renderPasswordResetEmail,
 } from "@/lib/email-templates";
+import { requireEnvironmentVariable } from "@/lib/environment";
 
 type TransactionalEmail = {
   to: string;
@@ -50,16 +51,20 @@ export async function sendPasswordResetEmail(input: PasswordResetEmail) {
 }
 
 async function sendTransactionalEmail(email: TransactionalEmail) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  if (!apiKey || !from) {
-    console.error("Resend transactional email is not configured", {
-      missing: [!apiKey ? "RESEND_API_KEY" : null, !from ? "EMAIL_FROM" : null].filter(
-        (value): value is string => value !== null,
-      ),
-    });
+  const missing = [
+    ...(!process.env.RESEND_API_KEY?.trim() ? ["RESEND_API_KEY"] : []),
+    ...(!process.env.EMAIL_FROM?.trim() ? ["EMAIL_FROM"] : []),
+  ];
+  if (missing.length > 0) {
+    console.error("Resend transactional email is not configured", { missing });
     throw new EmailDeliveryError();
   }
+
+  const apiKey = requireEnvironmentVariable(
+    "RESEND_API_KEY",
+    process.env.RESEND_API_KEY,
+  );
+  const from = requireEnvironmentVariable("EMAIL_FROM", process.env.EMAIL_FROM);
 
   try {
     const { data, error } = await new Resend(apiKey).emails.send({

@@ -12,15 +12,29 @@ FalconCare Hub is a multi-tenant workforce-management foundation for UK domicili
 
 ## Local development
 
-Requirements: Node.js 22.12+, npm, and Docker with Compose.
+Requirements: Node.js 22.12+ and npm. PostgreSQL is needed only to run the application against persisted data, apply migrations, or seed demo records; schema validation, Prisma Client generation, type-checking, tests, linting and production compilation do not need PostgreSQL.
 
-1. Copy `.env.example` to `.env` and replace `AUTH_SECRET`, `DEV_ADMIN_PASSWORD`, and the local PostgreSQL password in both `POSTGRES_PASSWORD` and `DATABASE_URL`. Set `RESEND_API_KEY` and `EMAIL_FROM` for delivery. For local preview-only use, the development preview page works without a Resend API key. For example, generate a secret with:
+1. Copy `.env.example` to `.env`. Its `DATABASE_URL` is a clearly marked, non-functional placeholder used only by Prisma generation/validation/formatting. **Do not use it for migrations, seeding, or application runtime.** Local compilation does not require production values such as `AUTH_SECRET`, `APP_URL`, `RESEND_API_KEY` or `EMAIL_FROM`. Configure real runtime values when exercising authentication or email features. For example, generate a secret with:
 
    ```powershell
    node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
    ```
 
-2. Start PostgreSQL:
+2. Validate and build offline (no database connection is made):
+
+   ```powershell
+   npm ci
+   npm run prisma:validate
+   npm run prisma:generate
+   npm run typecheck
+   npm run lint
+   npm test
+   npm run build
+   ```
+
+   `prisma:generate`, `prisma:validate` and Prisma formatting use the internal placeholder only when no real `DATABASE_URL` is set. All database operations reject that placeholder before invoking Prisma.
+
+3. To run the database-backed application locally, set a real PostgreSQL `DATABASE_URL`, then start PostgreSQL:
 
    ```powershell
    docker compose up -d db
@@ -28,18 +42,16 @@ Requirements: Node.js 22.12+, npm, and Docker with Compose.
 
    To preview the invitation and password-reset designs without sending email or using real staff information, start the app in development and open <http://localhost:3000/dev/email-preview>. That page uses fictional data and nonfunctional preview-only links.
 
-3. Install dependencies, generate Prisma Client, apply migrations, and create fictional demo data:
+4. Apply migrations and create fictional demo data:
 
    ```powershell
-   npm ci
-   npm run db:generate
    npm run db:migrate
    npm run db:seed
    ```
 
    The seed requires `DEV_ADMIN_EMAIL` and `DEV_ADMIN_PASSWORD` in `.env`. It refuses to run when `NODE_ENV=production`. Sample staff have `.test` email addresses and reserved fictional UK telephone numbers.
 
-4. Start the application:
+5. Start the application:
 
    ```powershell
    npm run dev
@@ -84,11 +96,11 @@ Vitest includes authentication, authorization, tenant-scoping, staff API, token,
 
 ## Docker Compose
 
-For local container deployment:
+For local container deployment with PostgreSQL:
 
 ```powershell
 Copy-Item .env.example .env
-# Edit .env: set strong local POSTGRES_PASSWORD and AUTH_SECRET values, set RESEND_API_KEY for delivery, and use a verified sender in EMAIL_FROM.
+# Edit .env: set a strong local POSTGRES_PASSWORD and AUTH_SECRET; set RESEND_API_KEY for delivery and use a verified sender in EMAIL_FROM. Compose constructs its real database URL from the POSTGRES_* values.
 docker compose --profile release run --rm migrate
 docker compose up --build -d
 ```
@@ -107,7 +119,7 @@ The release-profile `migrate` service runs `prisma migrate deploy` explicitly an
    npm run db:migrate
    ```
 
-   Run it in a one-off release container/job built from the Dockerfile's `builder` target with production `DATABASE_URL`, or use the Compose `migrate` release profile. For example:
+   Run it in a one-off release container/job built from the Dockerfile's `builder` target with production `DATABASE_URL`, or use the Compose `migrate` release profile. Coolify must inject the real PostgreSQL URL and production secrets into that release job and the running application; do not pass the `.env.example` placeholder or inherit local `.env` values. For example:
 
    ```sh
    docker build --target builder -t falconcare-hub-migrate .
@@ -121,9 +133,9 @@ The release-profile `migrate` service runs `prisma migrate deploy` explicitly an
 
 | Variable | Required | Purpose |
 |---|---:|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string; URL-encode special characters in credentials. |
-| `AUTH_SECRET` | Yes | Auth.js signing/encryption secret; use at least 32 random bytes. |
-| `APP_URL` | Yes | Canonical public application origin, used for CSRF origin checks and email links. |
+| `DATABASE_URL` | Yes at runtime/database operations | Real PostgreSQL connection string; URL-encode special characters in credentials. Placeholder is allowed only for Prisma generation/validation/formatting. |
+| `AUTH_SECRET` | Yes when authentication runs | Auth.js signing/encryption secret; use at least 32 random bytes. |
+| `APP_URL` | Yes when origin checks or email links are used | Canonical public application origin, used for CSRF origin checks and email links. |
 | `AUTH_URL` | Recommended | Canonical Auth.js URL behind a reverse proxy. |
 | `AUTH_TRUST_HOST` | Yes in Coolify | Set `true` when deployed behind Coolify's trusted proxy. |
 | `RESEND_API_KEY` | Yes for email delivery | Resend API key. Server-only secret; never expose it through a `NEXT_PUBLIC_` variable or client component. |

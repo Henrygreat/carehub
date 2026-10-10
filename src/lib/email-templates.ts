@@ -125,7 +125,7 @@ function safeText(value: string) {
 function safeUrl(value: string) {
   const url = new URL(value);
   const localDevelopmentHost =
-    process.env.NODE_ENV === "development" &&
+    process.env.NODE_ENV !== "production" &&
     ["localhost", "127.0.0.1"].includes(url.hostname);
   if (url.protocol !== "https:" && !localDevelopmentHost) {
     throw new Error("Transactional email links must use HTTPS.");

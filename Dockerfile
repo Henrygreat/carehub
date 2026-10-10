@@ -8,10 +8,8 @@ RUN npm ci
 
 FROM base AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL=postgresql://not-used:not-used@localhost:5432/not-used
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run db:generate
 RUN npm run build
 
 FROM base AS runner

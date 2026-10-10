@@ -1,21 +1,24 @@
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { renderInvitationEmail, renderPasswordResetEmail } from "@/lib/email-templates";
+import { requireAppUrl } from "@/lib/environment";
 
 export const dynamic = "force-dynamic";
 
 export default function DevelopmentEmailPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
-  const baseUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const baseUrl =
+    process.env.APP_URL ?? (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
+  const appUrl = requireAppUrl(baseUrl);
   const invitation = renderInvitationEmail({
     organisationName: "Falcon Carers Demo",
     role: "CARE_WORKER",
-    acceptUrl: new URL("/invite/DEVELOPMENT-PREVIEW-ONLY", baseUrl).toString(),
+    acceptUrl: new URL("/invite/DEVELOPMENT-PREVIEW-ONLY", appUrl).toString(),
     expiresAt: new Date("2030-01-08T12:00:00.000Z"),
   });
   const passwordReset = renderPasswordResetEmail({
-    resetUrl: new URL("/reset-password#token=DEVELOPMENT-PREVIEW-ONLY", baseUrl).toString(),
+    resetUrl: new URL("/reset-password#token=DEVELOPMENT-PREVIEW-ONLY", appUrl).toString(),
     expiresAt: new Date("2030-01-01T12:00:00.000Z"),
   });
 

@@ -1,11 +1,25 @@
 import { PrismaClient } from "@prisma/client";
+import { requireDatabaseUrl } from "@/lib/environment";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForPrisma = globalThis as typeof globalThis & {
+  prisma?: PrismaClient;
+};
 
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-  });
+function getPrismaClient() {
+  if (!globalForPrisma.prisma) {
+    const databaseUrl = requireDatabaseUrl(process.env.DATABASE_URL);
+    globalForPrisma.prisma = new PrismaClient({
+      datasources: { db: { url: databaseUrl } },
+      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    });
+  }
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, property) {
+    const client = getPrismaClient();
+    const value = Reflect.get(client, property, client) as unknown;
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});

@@ -7,6 +7,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { createSecretToken, hashSecretToken } from "@/lib/tokens";
 import { resolveTenantContext } from "@/lib/tenant";
 import { invitationSchema } from "@/lib/validation";
+import { requireAppUrl } from "@/lib/environment";
 
 export async function POST(request: Request) {
   try {
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       });
       return created;
     });
-    const url = new URL(`/invite/${token}`, process.env.APP_URL).toString();
+    const url = new URL(`/invite/${token}`, requireAppUrl(process.env.APP_URL)).toString();
     try {
       await sendInvitationEmail({
         to: email,

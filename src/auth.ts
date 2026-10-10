@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { authenticateCredentials } from "@/lib/authenticate";
 import { db } from "@/lib/db";
+import { requireAuthSecret } from "@/lib/environment";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
@@ -13,6 +14,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, request) {
+        requireAuthSecret(process.env.AUTH_SECRET);
         const forwardedFor =
           request.headers.get("x-forwarded-for")?.split(",")[0]?.trim().slice(0, 64) ??
           "unknown";
@@ -22,6 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      requireAuthSecret(process.env.AUTH_SECRET);
       if (user?.id) {
         const authenticatedUser = await db.user.findUnique({
           where: { id: user.id },

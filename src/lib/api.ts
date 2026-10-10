@@ -5,6 +5,7 @@ import {
 } from "@/lib/tenant";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { RateLimitError } from "@/lib/rate-limit";
+import { requireAppUrl } from "@/lib/environment";
 
 export function privateJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -46,10 +47,10 @@ export function validationError(issues: unknown) {
 
 export function hasValidOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  const appUrl = process.env.APP_URL;
-  if (!origin || !appUrl) return false;
+  if (!origin) return false;
+  const appOrigin = requireAppUrl(process.env.APP_URL);
   try {
-    return new URL(origin).origin === new URL(appUrl).origin;
+    return new URL(origin).origin === appOrigin;
   } catch {
     return false;
   }
