@@ -12,7 +12,7 @@ FalconCare Hub is a multi-tenant workforce-management foundation for UK domicili
 
 ## Local development
 
-Requirements: Node.js 22.12+ and npm. PostgreSQL is needed only to run the application against persisted data, apply migrations, or seed demo records; schema validation, Prisma Client generation, type-checking, tests, linting and production compilation do not need PostgreSQL.
+Requirements: Node.js 22.12+ and npm 10.9.4 (pinned through `packageManager` and used in Docker). PostgreSQL is needed only to run the application against persisted data, apply migrations, or seed demo records; schema validation, Prisma Client generation, type-checking, tests, linting and production compilation do not need PostgreSQL.
 
 1. Copy `.env.example` to `.env`. Its `DATABASE_URL` is a clearly marked, non-functional placeholder used only by Prisma generation/validation/formatting. **Do not use it for migrations, seeding, or application runtime.** Local compilation does not require production values such as `AUTH_SECRET`, `APP_URL`, `RESEND_API_KEY` or `EMAIL_FROM`. Configure real runtime values when exercising authentication or email features. For example, generate a secret with:
 
@@ -23,7 +23,7 @@ Requirements: Node.js 22.12+ and npm. PostgreSQL is needed only to run the appli
 2. Validate and build offline (no database connection is made):
 
    ```powershell
-   npm ci
+   npx --yes npm@10.9.4 ci
    npm run prisma:validate
    npm run prisma:generate
    npm run typecheck
@@ -112,14 +112,14 @@ The release-profile `migrate` service runs `prisma migrate deploy` explicitly an
 1. Provision PostgreSQL in Coolify (or connect an existing managed PostgreSQL service). Enable persistent database storage and backups. Use a private/internal connection address where available.
 2. Create a Dockerfile-based application resource pointing to this repository and `Dockerfile`. Expose container port `3000`.
 3. Configure the public HTTPS domain in Coolify. Set `APP_URL` and `AUTH_URL` to that exact origin (for example, `https://care.example.co.uk`) and set `AUTH_TRUST_HOST=true`.
-4. Add the production environment values below. Use a unique high-entropy `AUTH_SECRET`; do not use `.env.example` values. Create a Resend API key and verify the sender domain in Resend. Publish the SPF and DKIM DNS records Resend provides, wait for domain verification, and set `EMAIL_FROM` to an address on that verified domain. Keep the Resend key in Coolify's secret environment settings.
+4. Add the production environment values below in Coolify's runtime environment/secret settings. Do not configure `AUTH_SECRET`, `AUTH_URL`, `RESEND_API_KEY` or other credentials as Docker build arguments; the Dockerfile does not use these values during image construction. Use a unique high-entropy `AUTH_SECRET`; do not use `.env.example` values. Create a Resend API key and verify the sender domain in Resend. Publish the SPF and DKIM DNS records Resend provides, wait for domain verification, and set `EMAIL_FROM` to an address on that verified domain. Keep the Resend key in Coolify's secret environment settings.
 5. Before promoting a release, take a database backup and run the release operation once against the production database:
 
    ```sh
    npm run db:migrate
    ```
 
-   Run it in a one-off release container/job built from the Dockerfile's `builder` target with production `DATABASE_URL`, or use the Compose `migrate` release profile. Coolify must inject the real PostgreSQL URL and production secrets into that release job and the running application; do not pass the `.env.example` placeholder or inherit local `.env` values. For example:
+   Run it in a one-off release container/job built from the Dockerfile's `builder` target with production `DATABASE_URL`, or use the Compose `migrate` release profile. Coolify must inject the real PostgreSQL URL into that release job; do not pass the `.env.example` placeholder or inherit local `.env` values. Authentication and email secrets are needed by the running application, not by the migration job. For example:
 
    ```sh
    docker build --target builder -t falconcare-hub-migrate .
