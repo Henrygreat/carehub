@@ -101,7 +101,7 @@ For local container deployment with PostgreSQL:
 ```powershell
 Copy-Item .env.example .env
 # Edit .env: set a strong local POSTGRES_PASSWORD and AUTH_SECRET; set RESEND_API_KEY for delivery and use a verified sender in EMAIL_FROM. Compose constructs its real database URL from the POSTGRES_* values.
-docker compose --profile release run --rm migrate
+docker compose --profile release run --rm -e CONFIRM_DB_BACKUP=yes migrate
 docker compose up --build -d
 ```
 
@@ -113,21 +113,43 @@ The release-profile `migrate` service runs `prisma migrate deploy` explicitly an
 2. Create a Dockerfile-based application resource pointing to this repository and `Dockerfile`. Expose container port `3000`.
 3. Configure the public HTTPS domain in Coolify. Set `APP_URL` and `AUTH_URL` to that exact origin (for example, `https://care.example.co.uk`) and set `AUTH_TRUST_HOST=true`.
 4. Add the production environment values below in Coolify's runtime environment/secret settings. Do not configure `AUTH_SECRET`, `AUTH_URL`, `RESEND_API_KEY` or other credentials as Docker build arguments; the Dockerfile does not use these values during image construction. Use a unique high-entropy `AUTH_SECRET`; do not use `.env.example` values. Create a Resend API key and verify the sender domain in Resend. Publish the SPF and DKIM DNS records Resend provides, wait for domain verification, and set `EMAIL_FROM` to an address on that verified domain. Keep the Resend key in Coolify's secret environment settings.
-5. Before promoting a release, take a database backup and run the release operation once against the production database:
-
-   ```sh
-   npm run db:migrate
-   ```
-
-   Run it in a one-off release container/job built from the Dockerfile's `builder` target with production `DATABASE_URL`, or use the Compose `migrate` release profile. Coolify must inject the real PostgreSQL URL into that release job; do not pass the `.env.example` placeholder or inherit local `.env` values. Authentication and email secrets are needed by the running application, not by the migration job. For example:
-
-   ```sh
-   docker build --target builder -t falconcare-hub-migrate .
-   docker run --rm -e DATABASE_URL="$DATABASE_URL" falconcare-hub-migrate npm run db:migrate
-   ```
-
-   The production runtime image intentionally omits development tooling. Do not run `prisma migrate reset`, `db push`, or the development seed against production.
+5. Apply database migrations as an explicit release step (see [Production database migrations](#production-database-migrations)). The application image never runs migrations and does not contain the Prisma CLI.
 6. Deploy the application, verify `https://<your-domain>/api/health`, and confirm Resend delivery using a controlled test mailbox. Keep database storage persistent. Sprint 1 does not store uploaded/private documents; if object storage is added later, use private buckets and tenant-scoped access policies.
+
+### Production database migrations
+
+The migration history lives in `prisma/migrations` (initial migration `20261010133000_sprint1_foundation`, creating `organisations`, `users`, `memberships`, `staff_profiles`, `employment_records`, `invitations`, `password_reset_tokens`, `rate_limit_buckets` and `audit_logs`). The migration SQL is verified to match `prisma/schema.prisma`. `prisma migrate deploy` only applies migrations not yet recorded in `_prisma_migrations`; it never drops or resets existing tables.
+
+The runtime image is deliberately minimal (no Prisma CLI, no migration files). Migrations run from a separate Dockerfile target, `migrator`, which contains Prisma CLI 6.19.3 (pinned exactly, matching `@prisma/client` 6.19.3) and the migration files. Nothing runs when it is built. It starts idle (`sleep infinity`) and you run commands in it deliberately. Do not use `npx prisma` (it can resolve an incompatible release); use the `npm run` scripts below, which call the locked local CLI.
+
+**One-time Coolify setup**
+
+1. In Coolify, create a second application from the same repository, with **Build Pack: Dockerfile**, and set **Docker Build Stage Target** (Advanced) to `migrator`. Give it no domain and no public port, and disable any health check.
+2. Add one runtime environment variable: `DATABASE_URL`, set to the same value as the application's (use the internal connection string, in the same Coolify network/destination as PostgreSQL). Do not add auth or email secrets. Never use the placeholder URL.
+3. Deploy it. The container idles; open its **Terminal** to run commands. Stop the resource when finished.
+
+**Release procedure** (in the `migrator` container terminal):
+
+1. **Back up first.** In the PostgreSQL resource in Coolify, use **Backups → Backup now** (or run `pg_dump -Fc -U <user> -d <db> -f /tmp/pre-migration.dump` in the database terminal and copy it off the server). Confirm the backup file exists and is non-empty.
+2. **Check status (read-only):**
+
+   ```sh
+   npm run db:status
+   ```
+
+   On a database with no tables this reports the migration as pending. It changes nothing.
+3. **Apply pending migrations** (only after the backup is confirmed):
+
+   ```sh
+   CONFIRM_DB_BACKUP=yes npm run db:migrate
+   ```
+
+   Without `CONFIRM_DB_BACKUP=yes` the script refuses to run in production. Re-running is safe: with nothing pending it applies nothing.
+4. **Verify:** run `npm run db:status` again; it should report "Database schema is up to date". Then create the first administrator (next section) and check `https://<your-domain>/api/health`.
+
+Do not run `prisma migrate reset`, `prisma db push` or the development seed against production. If a migration fails part-way, stop, keep the backup, and review the error before retrying (`prisma migrate resolve` is a manual recovery step; do not use it without understanding the failure).
+
+Add new migrations only with `npx prisma migrate dev --name <change>` against a disposable local database, commit them in `prisma/migrations`, and deploy via the procedure above.
 
 ### Create the first administrator (one-time)
 

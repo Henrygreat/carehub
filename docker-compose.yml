@@ -45,10 +45,11 @@ services:
   migrate:
     build:
       context: .
-      target: builder
+      target: migrator
     profiles: ["release"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-falconcare}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-falconcare}?schema=public
+      CONFIRM_DB_BACKUP: ${CONFIRM_DB_BACKUP:-}
     command: ["npm", "run", "db:migrate"]
     depends_on:
       db:
