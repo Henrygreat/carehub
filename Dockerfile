@@ -39,26 +39,23 @@ COPY . .
 RUN npm run build
 
 # -----------------------------------------------------------------------------
-# Stage: migration-tools - Extract only migration dependencies
-# This creates a minimal node_modules with tsx, prisma, and dotenv
+# Stage: migration-tools - Create minimal node_modules for migrations
+# Installs tsx, prisma CLI, dotenv with complete dependency trees
 # -----------------------------------------------------------------------------
 FROM base AS migration-tools
+WORKDIR /app
 COPY package.json package-lock.json ./
 ENV NODE_ENV=development
-# Install only the packages needed for migrations (tsx, prisma CLI, dotenv)
-# Using npm install instead of npm ci to get a smaller subset
+# Install migration tools with their complete dependency trees
 RUN npm install --ignore-scripts \
     tsx@4.23.15 \
     prisma@6.19.3 \
     dotenv@18.0.7 \
     && npm cache clean --force
 
-# Verify the tools are installed correctly
-RUN echo "=== Migration tools verification ===" \
-    && ./node_modules/.bin/tsx --version \
-    && ./node_modules/.bin/prisma --version \
-    && ./node_modules/.bin/prisma --version | grep -q "6.19.3" \
-    && echo "=== Verification passed ==="
+# Verify installation
+RUN ./node_modules/.bin/tsx --version \
+    && ./node_modules/.bin/prisma --version | grep -q "6.19.3"
 
 # -----------------------------------------------------------------------------
 # Stage: runner - Final production image
@@ -72,51 +69,49 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
-# Copy Next.js standalone build
+# Copy Next.js standalone build (includes bundled production dependencies)
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy migration tools (tsx, prisma CLI, dotenv) from migration-tools stage
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/dotenv ./node_modules/dotenv
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/@esbuild ./node_modules/@esbuild
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/get-tsconfig ./node_modules/get-tsconfig
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/resolve-pkg-maps ./node_modules/resolve-pkg-maps
-COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
+# Copy ENTIRE node_modules from migration-tools (includes complete dependency trees)
+# This overwrites the minimal node_modules from standalone with migration tools
+COPY --from=migration-tools --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# Copy bcryptjs for bootstrap-admin script
+# Copy bcryptjs from builder (needed for bootstrap-admin.mjs)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/bcryptjs ./node_modules/bcryptjs
+
+# Copy @prisma/client from builder (generated for this platform during build)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 # Copy package.json for npm scripts
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Copy Prisma schema, migrations, and config
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-
-# Copy prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 
 # Copy database operation scripts
-COPY --from=builder --chown=nextjs:nodejs /app/scripts/database-operation.ts ./scripts/database-operation.ts
-COPY --from=builder --chown=nextjs:nodejs /app/scripts/bootstrap-admin.mjs ./scripts/bootstrap-admin.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/src/lib/environment.ts ./src/lib/environment.ts
 
-# Generate Prisma client for Alpine Linux
-# CRITICAL: Use local prisma, NOT npx (which downloads latest version)
+# Generate Prisma client for Alpine Linux runtime
+# Use local prisma from node_modules, NOT npx (which downloads latest version)
 RUN ./node_modules/.bin/prisma generate
 
-# Verify migration tools work
-RUN echo "=== Final image verification ===" \
-    && echo "tsx:" && ./node_modules/.bin/tsx --version \
-    && echo "prisma:" && ./node_modules/.bin/prisma --version \
-    && echo "Migrations:" && ls -la prisma/migrations/ \
-    && echo "=== Verification complete ==="
+# Verify the final image has all required tools
+RUN echo "=== Final Image Verification ===" \
+    && echo "Node: $(node --version)" \
+    && echo "tsx: $(./node_modules/.bin/tsx --version)" \
+    && echo "prisma CLI: $(./node_modules/.bin/prisma --version)" \
+    && echo "Checking npm ls:" \
+    && npm ls tsx prisma @prisma/client --depth=0 2>/dev/null || true \
+    && echo "Migrations directory:" \
+    && ls -la prisma/migrations/ \
+    && echo "=== Verification Complete ==="
 
-# Fix ownership after prisma generate
+# Ensure correct ownership
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs
