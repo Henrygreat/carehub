@@ -13,23 +13,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-# Release-only image: pinned Prisma CLI 6.19.3 (from package-lock.json), the
-# migration history and the guarded wrapper. Nothing runs at build time; it is
-# started explicitly with the commands in the README. Never used to serve the app.
-FROM base AS migrator
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json prisma.config.ts ./
-COPY prisma ./prisma
-COPY scripts/database-operation.ts ./scripts/database-operation.ts
-COPY src/lib/environment.ts ./src/lib/environment.ts
-RUN addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 migrator \
-  && chown -R migrator:nodejs /app
-USER migrator
-CMD ["sleep", "infinity"]
+# NOTE: For database migrations, use the dedicated Dockerfile.migrator instead.
+# It ensures tsx and Prisma CLI are properly installed for migration commands.
 
 FROM base AS runner
 ENV NODE_ENV=production

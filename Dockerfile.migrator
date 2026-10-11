@@ -1,0 +1,72 @@
+# FalconCare Hub - Database Migrator Image
+# Dedicated image for running Prisma migrations in Coolify.
+#
+# COOLIFY CONFIGURATION:
+#   Build Pack:        Dockerfile
+#   Dockerfile Path:   Dockerfile.migrator
+#   Docker Context:    . (repository root)
+#
+# This image includes tsx and Prisma CLI for migration operations.
+# It does NOT run migrations automatically - use manual commands.
+#
+# Usage (in Coolify terminal or docker exec):
+#   npm run db:status                              # Check migration status (read-only)
+#   CONFIRM_DB_BACKUP=yes npm run db:migrate       # Apply pending migrations
+
+FROM node:22-alpine AS base
+RUN apk add --no-cache libc6-compat openssl
+WORKDIR /app
+
+# Install only the dependencies needed for migrations.
+# tsx, prisma, and dotenv are devDependencies in package.json but required here.
+FROM base AS deps
+COPY package.json package-lock.json ./
+
+# Install ALL dependencies (including devDependencies) to get tsx and prisma.
+# NODE_ENV must NOT be production during install, or devDeps are skipped.
+ENV NODE_ENV=development
+RUN npm ci --include=dev
+
+# Verify tsx and prisma are installed (fail fast if missing)
+RUN test -f node_modules/.bin/tsx && test -f node_modules/.bin/prisma \
+    && echo "tsx version: $(node_modules/.bin/tsx --version)" \
+    && echo "prisma version: $(node_modules/.bin/prisma --version)"
+
+# Final migrator image
+FROM base AS migrator
+WORKDIR /app
+
+# Set production for runtime, but dependencies are already installed
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Copy node_modules with tsx and prisma from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy package.json for npm scripts
+COPY package.json ./
+
+# Copy Prisma schema and migrations
+COPY prisma/schema.prisma ./prisma/schema.prisma
+COPY prisma/migrations ./prisma/migrations
+
+# Copy Prisma config (uses dotenv)
+COPY prisma.config.ts ./
+
+# Copy migration wrapper script and its dependency
+COPY scripts/database-operation.ts ./scripts/database-operation.ts
+COPY src/lib/environment.ts ./src/lib/environment.ts
+
+# Generate Prisma client for the target platform (linux-musl-openssl-3.0.x)
+RUN npx prisma generate
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 migrator \
+    && chown -R migrator:nodejs /app
+
+USER migrator
+
+# Keep container running for manual migration commands
+# Connect via Coolify terminal or: docker exec -it <container> sh
+CMD ["sleep", "infinity"]
