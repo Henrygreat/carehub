@@ -22,7 +22,9 @@
     "db:status": "tsx scripts/database-operation.ts status",
     "db:migrate": "tsx scripts/database-operation.ts migrate",
     "db:bootstrap-admin": "node --env-file-if-exists=.env scripts/bootstrap-admin.mjs",
-    "db:seed": "tsx scripts/database-operation.ts seed"
+    "db:seed": "tsx scripts/database-operation.ts seed",
+    "db:verify-admin": "node --env-file-if-exists=.env scripts/verify-admin.mjs",
+    "db:fix-admin-password": "node --env-file-if-exists=.env scripts/fix-admin-password.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

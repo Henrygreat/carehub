@@ -161,7 +161,12 @@ async function main() {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL || (await ask("Administrator email: "));
   const name = process.env.BOOTSTRAP_ADMIN_NAME || (await ask("Administrator full name: "));
   let password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
-  if (!password) {
+  if (password) {
+    // Trim environment variable to remove trailing newlines/whitespace that may have been
+    // accidentally included when copying the value. Interactive input is not trimmed to
+    // allow intentional spaces in passwords.
+    password = password.trim();
+  } else {
     password = await ask("Administrator password (hidden): ", { hidden: true });
     const confirmation = await ask("Confirm password (hidden): ", { hidden: true });
     if (password !== confirmation) throw new BootstrapError("The passwords did not match.");

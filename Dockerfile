@@ -15,6 +15,8 @@
 #   npm run db:status                              # Check migration status
 #   CONFIRM_DB_BACKUP=yes npm run db:migrate       # Apply migrations
 #   npm run db:bootstrap-admin                     # Create first admin user
+#   npm run db:verify-admin <email>                # Verify admin account state
+#   npm run db:fix-admin-password <email>          # Fix admin password hash
 
 FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat openssl

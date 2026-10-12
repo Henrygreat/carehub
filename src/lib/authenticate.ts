@@ -9,7 +9,10 @@ export async function authenticateCredentials(
   forwardedFor = "unknown",
 ) {
   const parsed = loginSchema.safeParse(credentials);
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    console.error("[Auth] Credential validation failed:", parsed.error.issues);
+    return null;
+  }
 
   const email = parsed.data.email.trim().toLowerCase();
   const identifier = createHash("sha256").update(email).digest("hex");
@@ -23,12 +26,25 @@ export async function authenticateCredentials(
     where: { email },
     include: { memberships: { where: { active: true }, select: { id: true } } },
   });
-  if (
-    !user ||
-    user.disabledAt ||
-    user.memberships.length === 0 ||
-    !(await verifyPassword(parsed.data.password, user.passwordHash))
-  ) {
+
+  if (!user) {
+    console.error("[Auth] User not found:", email);
+    return null;
+  }
+
+  if (user.disabledAt) {
+    console.error("[Auth] User is disabled:", email);
+    return null;
+  }
+
+  if (user.memberships.length === 0) {
+    console.error("[Auth] User has no active memberships:", email);
+    return null;
+  }
+
+  const passwordValid = await verifyPassword(parsed.data.password, user.passwordHash);
+  if (!passwordValid) {
+    console.error("[Auth] Password verification failed:", email);
     return null;
   }
 

@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker build:*)"
+      "Bash(docker build:*)",
+      "Bash(docker ps:*)",
+      "Bash(psql:*)",
+      "Bash(node scripts/check-admin.mjs:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm view:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
