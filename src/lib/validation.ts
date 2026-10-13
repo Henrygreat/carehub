@@ -167,3 +167,97 @@ export const careNoteSchema = z.object({
   isIncident: z.boolean().default(false),
   isPrivate: z.boolean().default(false),
 });
+
+// =============================================================================
+// Phase 3: Care Plan Schemas
+// =============================================================================
+
+export const carePlanSchema = z.object({
+  clientId: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(5000).nullable().optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "UNDER_REVIEW", "ARCHIVED"]).default("DRAFT"),
+  startDate: z.coerce.date(),
+  reviewDate: z.coerce.date().nullable().optional(),
+  endDate: z.coerce.date().nullable().optional(),
+  specialInstructions: z.string().max(5000).nullable().optional(),
+  isConfidential: z.boolean().default(false),
+});
+
+export const carePlanTaskSchema = z.object({
+  carePlanId: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  frequency: z.enum(["EVERY_VISIT", "DAILY", "WEEKLY", "MONTHLY", "AS_NEEDED"]).default("EVERY_VISIT"),
+  isRequired: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+// Batch create tasks with a care plan
+export const carePlanWithTasksSchema = carePlanSchema.extend({
+  tasks: z.array(z.object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().max(2000).nullable().optional(),
+    frequency: z.enum(["EVERY_VISIT", "DAILY", "WEEKLY", "MONTHLY", "AS_NEEDED"]).default("EVERY_VISIT"),
+    isRequired: z.boolean().default(true),
+    sortOrder: z.number().int().min(0).default(0),
+  })).optional(),
+});
+
+// =============================================================================
+// Phase 3: Task Completion Schemas
+// =============================================================================
+
+export const taskCompletionSchema = z.object({
+  taskId: z.string().uuid(),
+  completed: z.boolean().default(false),
+  unableToComplete: z.boolean().default(false),
+  notes: z.string().max(1000).nullable().optional(),
+  reason: z.string().max(500).nullable().optional(), // Reason for unable to complete
+});
+
+// Batch complete multiple tasks for a visit
+export const batchTaskCompletionSchema = z.object({
+  completions: z.array(taskCompletionSchema),
+});
+
+// =============================================================================
+// Phase 3: Incident Schemas
+// =============================================================================
+
+export const incidentSchema = z.object({
+  clientId: z.string().uuid().nullable().optional(),
+  visitId: z.string().uuid().nullable().optional(),
+  category: z.enum([
+    "FALL",
+    "MEDICATION_ERROR",
+    "SAFEGUARDING",
+    "BEHAVIOR",
+    "EQUIPMENT",
+    "MISSED_CARE",
+    "HEALTH_CONCERN",
+    "PROPERTY_DAMAGE",
+    "OTHER",
+  ]),
+  severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
+  occurredAt: z.coerce.date(),
+  location: z.string().trim().max(200).nullable().optional(),
+  description: z.string().trim().min(10).max(5000),
+  immediateAction: z.string().max(2000).nullable().optional(),
+  followUpRequired: z.boolean().default(false),
+});
+
+export const incidentReviewSchema = z.object({
+  status: z.enum(["OPEN", "UNDER_REVIEW", "RESOLVED", "CLOSED"]),
+  followUpNotes: z.string().max(5000).nullable().optional(),
+  resolutionNotes: z.string().max(5000).nullable().optional(),
+});
+
+export const incidentUpdateSchema = z.object({
+  severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+  description: z.string().trim().min(10).max(5000).optional(),
+  immediateAction: z.string().max(2000).nullable().optional(),
+  followUpRequired: z.boolean().optional(),
+  followUpNotes: z.string().max(5000).nullable().optional(),
+});

@@ -28,7 +28,19 @@ export type Permission =
   | "shifts:update"
   | "shifts:cancel"
   // Phase 2: Attendance
-  | "attendance:record";
+  | "attendance:record"
+  // Phase 3: Care plan permissions
+  | "carePlans:read"
+  | "carePlans:create"
+  | "carePlans:update"
+  | "carePlans:archive"
+  // Phase 3: Task completion
+  | "tasks:complete"
+  // Phase 3: Incident permissions
+  | "incidents:read"
+  | "incidents:create"
+  | "incidents:update"
+  | "incidents:review";
 
 const grants: Record<Role, readonly Permission[]> = {
   PLATFORM_ADMIN: ["organisation:read", "organisation:update"],
@@ -57,6 +69,16 @@ const grants: Record<Role, readonly Permission[]> = {
     "shifts:update",
     "shifts:cancel",
     "attendance:record",
+    // Phase 3
+    "carePlans:read",
+    "carePlans:create",
+    "carePlans:update",
+    "carePlans:archive",
+    "tasks:complete",
+    "incidents:read",
+    "incidents:create",
+    "incidents:update",
+    "incidents:review",
   ],
   MANAGER: [
     "organisation:read",
@@ -79,6 +101,16 @@ const grants: Record<Role, readonly Permission[]> = {
     "shifts:update",
     "shifts:cancel",
     "attendance:record",
+    // Phase 3
+    "carePlans:read",
+    "carePlans:create",
+    "carePlans:update",
+    "carePlans:archive",
+    "tasks:complete",
+    "incidents:read",
+    "incidents:create",
+    "incidents:update",
+    "incidents:review",
   ],
   COORDINATOR: [
     "organisation:read",
@@ -90,6 +122,15 @@ const grants: Record<Role, readonly Permission[]> = {
     "shifts:read",
     "shifts:update",
     "attendance:record",
+    // Phase 3: Coordinators can manage care plans and review incidents
+    "carePlans:read",
+    "carePlans:create",
+    "carePlans:update",
+    "tasks:complete",
+    "incidents:read",
+    "incidents:create",
+    "incidents:update",
+    "incidents:review",
   ],
   CARE_WORKER: [
     "staff:read",
@@ -98,6 +139,11 @@ const grants: Record<Role, readonly Permission[]> = {
     "visits:read",
     "shifts:read",
     "attendance:record",
+    // Phase 3: Care workers can view care plans and complete tasks
+    "carePlans:read",
+    "tasks:complete",
+    "incidents:read",
+    "incidents:create",
   ],
 };
 
@@ -175,6 +221,47 @@ export function canRecordAttendance(
   }
   // Care workers can only record their own attendance
   return context.staffProfileId != null && visit.staffProfileId === context.staffProfileId;
+}
+
+// Phase 3: Care plan access control
+// Care workers can only view care plans for clients they have visits assigned to
+export function canAccessCarePlan(
+  context: { membership: { role: Role }; assignedClientIds?: string[] },
+  carePlan: { clientId: string },
+) {
+  if (context.membership.role === "CARE_WORKER") {
+    // Care workers must have an assigned visit to this client
+    return context.assignedClientIds?.includes(carePlan.clientId) ?? false;
+  }
+  return hasPermission(context.membership.role, "carePlans:read");
+}
+
+// Phase 3: Incident access control
+// Care workers can view incidents they reported or are related to their visits
+export function canAccessIncident(
+  context: { membership: { role: Role; id: string }; staffProfileId?: string | null },
+  incident: { reportedById: string; visitId?: string | null },
+  visitStaffProfileId?: string | null,
+) {
+  if (context.membership.role === "CARE_WORKER") {
+    // Care workers can see incidents they reported
+    if (incident.reportedById === context.membership.id) return true;
+    // Or incidents related to visits they're assigned to
+    if (
+      incident.visitId &&
+      context.staffProfileId != null &&
+      visitStaffProfileId === context.staffProfileId
+    ) {
+      return true;
+    }
+    return false;
+  }
+  return hasPermission(context.membership.role, "incidents:read");
+}
+
+// Phase 3: Check if user can review incidents
+export function canReviewIncident(context: { membership: { role: Role } }) {
+  return hasPermission(context.membership.role, "incidents:review");
 }
 
 export class PermissionDeniedError extends Error {

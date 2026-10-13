@@ -59,6 +59,49 @@ enum RecurrenceFrequency {
   MONTHLY
 }
 
+// Phase 3: Care Delivery Operations Enums
+
+enum CarePlanStatus {
+  DRAFT
+  ACTIVE
+  UNDER_REVIEW
+  ARCHIVED
+}
+
+enum TaskFrequency {
+  EVERY_VISIT
+  DAILY
+  WEEKLY
+  MONTHLY
+  AS_NEEDED
+}
+
+enum IncidentCategory {
+  FALL
+  MEDICATION_ERROR
+  SAFEGUARDING
+  BEHAVIOR
+  EQUIPMENT
+  MISSED_CARE
+  HEALTH_CONCERN
+  PROPERTY_DAMAGE
+  OTHER
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
 model Organisation {
   id            String             @id @default(uuid()) @db.Uuid
   name          String
@@ -76,6 +119,9 @@ model Organisation {
   careVisits    CareVisit[]
   shifts        Shift[]
   careNotes     CareNote[]
+  // Phase 3
+  carePlans     CarePlan[]
+  incidents     Incident[]
 
   @@map("organisations")
 }
@@ -98,18 +144,22 @@ model User {
 }
 
 model Membership {
-  id              String         @id @default(uuid()) @db.Uuid
-  userId          String         @db.Uuid
-  organisationId  String         @db.Uuid
-  role            Role
-  active          Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organisation    Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  staffProfiles   StaffProfile[] @relation("StaffMembership")
-  sentInvitations Invitation[]   @relation("InvitedBy")
-  auditLogs       AuditLog[]
-  careNotes       CareNote[]
+  id                   String                @id @default(uuid()) @db.Uuid
+  userId               String                @db.Uuid
+  organisationId       String                @db.Uuid
+  role                 Role
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  staffProfiles        StaffProfile[]        @relation("StaffMembership")
+  sentInvitations      Invitation[]          @relation("InvitedBy")
+  auditLogs            AuditLog[]
+  careNotes            CareNote[]
+  // Phase 3
+  taskCompletions      VisitTaskCompletion[]
+  reportedIncidents    Incident[]            @relation("IncidentReporter")
+  reviewingIncidents   Incident[]            @relation("IncidentReviewer")
 
   @@unique([userId, organisationId])
   @@unique([id, organisationId])
@@ -250,6 +300,9 @@ model Client {
   emergencyContacts EmergencyContact[]
   careVisits        CareVisit[]
   visitNotes        CareNote[]
+  // Phase 3
+  carePlans         CarePlan[]
+  incidents         Incident[]
 
   @@unique([clientReference, organisationId])
   @@unique([id, organisationId])
@@ -275,27 +328,30 @@ model EmergencyContact {
 }
 
 model CareVisit {
-  id               String            @id @default(uuid()) @db.Uuid
-  organisationId   String            @db.Uuid
-  clientId         String            @db.Uuid
-  staffProfileId   String?           @db.Uuid
-  recurrenceId     String?           @db.Uuid
-  scheduledDate    DateTime          @db.Date
-  scheduledStart   DateTime          @db.Time
-  scheduledEnd     DateTime          @db.Time
+  id               String               @id @default(uuid()) @db.Uuid
+  organisationId   String               @db.Uuid
+  clientId         String               @db.Uuid
+  staffProfileId   String?              @db.Uuid
+  recurrenceId     String?              @db.Uuid
+  scheduledDate    DateTime             @db.Date
+  scheduledStart   DateTime             @db.Time
+  scheduledEnd     DateTime             @db.Time
   actualStart      DateTime?
   actualEnd        DateTime?
-  status           VisitStatus       @default(SCHEDULED)
+  status           VisitStatus          @default(SCHEDULED)
   visitType        String?
   notes            String?
   cancellationNote String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  organisation     Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  client           Client            @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Restrict)
-  staffProfile     StaffProfile?     @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Restrict)
-  recurrence       VisitRecurrence?  @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  organisation     Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  client           Client               @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Restrict)
+  staffProfile     StaffProfile?        @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Restrict)
+  recurrence       VisitRecurrence?     @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   careNotes        CareNote[]
+  // Phase 3
+  taskCompletions  VisitTaskCompletion[]
+  incidents        Incident[]
 
   @@index([organisationId, scheduledDate])
   @@index([organisationId, clientId])
@@ -419,4 +475,109 @@ model CareNote {
   @@index([organisationId, clientId])
   @@index([organisationId, isIncident])
   @@map("care_notes")
+}
+
+// =============================================================================
+// Phase 3: Care Delivery Operations Models
+// =============================================================================
+
+model CarePlan {
+  id               String         @id @default(uuid()) @db.Uuid
+  organisationId   String         @db.Uuid
+  clientId         String         @db.Uuid
+  title            String
+  description      String?
+  status           CarePlanStatus @default(DRAFT)
+  startDate        DateTime       @db.Date
+  reviewDate       DateTime?      @db.Date
+  endDate          DateTime?      @db.Date
+  specialInstructions String?
+  isConfidential   Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  organisation     Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  client           Client         @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Restrict)
+  tasks            CarePlanTask[]
+
+  @@index([organisationId, clientId])
+  @@index([organisationId, status])
+  @@index([organisationId, reviewDate])
+  @@map("care_plans")
+}
+
+model CarePlanTask {
+  id            String                @id @default(uuid()) @db.Uuid
+  carePlanId    String                @db.Uuid
+  title         String
+  description   String?
+  frequency     TaskFrequency         @default(EVERY_VISIT)
+  isRequired    Boolean               @default(true)
+  sortOrder     Int                   @default(0)
+  isActive      Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  carePlan      CarePlan              @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  completions   VisitTaskCompletion[]
+
+  @@index([carePlanId, isActive])
+  @@map("care_plan_tasks")
+}
+
+model VisitTaskCompletion {
+  id                String       @id @default(uuid()) @db.Uuid
+  visitId           String       @db.Uuid
+  taskId            String       @db.Uuid
+  completedById     String       @db.Uuid
+  completed         Boolean      @default(false)
+  unableToComplete  Boolean      @default(false)
+  notes             String?
+  reason            String?
+  completedAt       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  visit             CareVisit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  task              CarePlanTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completedBy       Membership   @relation(fields: [completedById], references: [id], onDelete: Restrict)
+
+  @@unique([visitId, taskId])
+  @@index([visitId])
+  @@index([taskId])
+  @@map("visit_task_completions")
+}
+
+model Incident {
+  id               String           @id @default(uuid()) @db.Uuid
+  organisationId   String           @db.Uuid
+  incidentReference String
+  clientId         String?          @db.Uuid
+  visitId          String?          @db.Uuid
+  reportedById     String           @db.Uuid
+  reviewerId       String?          @db.Uuid
+  category         IncidentCategory
+  severity         IncidentSeverity @default(MEDIUM)
+  status           IncidentStatus   @default(OPEN)
+  occurredAt       DateTime
+  location         String?
+  description      String
+  immediateAction  String?
+  followUpRequired Boolean          @default(false)
+  followUpNotes    String?
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  organisation     Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  client           Client?          @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: SetNull)
+  visit            CareVisit?       @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  reportedBy       Membership       @relation("IncidentReporter", fields: [reportedById], references: [id], onDelete: Restrict)
+  reviewer         Membership?      @relation("IncidentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@unique([incidentReference, organisationId])
+  @@index([organisationId, status])
+  @@index([organisationId, category])
+  @@index([organisationId, clientId])
+  @@index([organisationId, reportedById])
+  @@index([organisationId, reviewerId])
+  @@index([organisationId, createdAt])
+  @@map("incidents")
 }
