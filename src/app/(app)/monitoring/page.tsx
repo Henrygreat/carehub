@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/components/auth-provider";
 import { Clock, MapPin, User, AlertTriangle, CheckCircle, XCircle, Play, RefreshCw } from "lucide-react";
 
 type Visit = {
@@ -176,12 +175,13 @@ function VisitCard({ visit }: { visit: Visit }) {
 }
 
 export default function MonitoringPage() {
-  const { user } = useAuth();
   const router = useRouter();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [role, setRole] = useState<string>("");
+  const [accessChecked, setAccessChecked] = useState(false);
 
   const fetchVisits = async () => {
     try {
@@ -203,17 +203,55 @@ export default function MonitoringPage() {
   };
 
   useEffect(() => {
+    // Check user access first
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/v1/me");
+        if (response.ok) {
+          const data = await response.json();
+          const userRole = data.data?.role || "";
+          setRole(userRole);
+
+          // Redirect if not authorized
+          const allowedRoles = ["ORG_ADMIN", "MANAGER", "COORDINATOR"];
+          if (!allowedRoles.includes(userRole)) {
+            router.push("/dashboard");
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check access", err);
+      } finally {
+        setAccessChecked(true);
+      }
+    };
+
+    checkAccess();
+  }, [router]);
+
+  useEffect(() => {
+    if (!accessChecked) return;
+
     fetchVisits();
     // Refresh every 30 seconds
     const interval = setInterval(fetchVisits, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [accessChecked]);
+
+  // Wait for access check
+  if (!accessChecked) {
+    return (
+      <div className="text-center py-12">
+        <RefreshCw className="h-8 w-8 animate-spin text-gray-400 mx-auto" />
+        <p className="text-gray-500 mt-2">Checking access...</p>
+      </div>
+    );
+  }
 
   // Check if user has access to this page
   const allowedRoles = ["ORG_ADMIN", "MANAGER", "COORDINATOR"];
-  if (user && !allowedRoles.includes(user.role)) {
-    router.push("/dashboard");
-    return null;
+  if (role && !allowedRoles.includes(role)) {
+    return null; // Already redirecting
   }
 
   const inProgressVisits = visits.filter((v) => v.status === "IN_PROGRESS");

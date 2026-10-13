@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasValidOrigin, jsonError, privateJson, validationError } from "@/lib/api";
-import { assertPermission, canAccessIncident, canReviewIncident } from "@/lib/permissions";
+import { assertPermission, canAccessIncident } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { resolveTenantContext } from "@/lib/tenant";
 import { incidentUpdateSchema, incidentReviewSchema } from "@/lib/validation";

@@ -17,7 +17,9 @@
       "Bash(npm run prisma:validate:*)",
       "Bash(npm run lint)",
       "Bash(npm run build:*)",
-      "Bash(npm run test)"
+      "Bash(npm run test)",
+      "Bash(npm test:*)",
+      "Bash(echo:*)"
     ]
   }
 }

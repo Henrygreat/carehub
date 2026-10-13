@@ -6,11 +6,13 @@ import {
   AlertTriangle,
   Calendar,
   CheckCircle,
+  ClipboardList,
   Clock,
   MapPin,
   MessageSquare,
   Phone,
   Play,
+  Square,
   User,
   XCircle,
 } from "lucide-react";
@@ -32,6 +34,37 @@ type CareNote = {
   authorMembership: {
     user: { name: string };
   };
+};
+
+type CarePlanTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  frequency: string;
+  isRequired: boolean;
+  carePlan: {
+    id: string;
+    title: string;
+  };
+};
+
+type TaskCompletion = {
+  id: string;
+  taskId: string;
+  completed: boolean;
+  unableToComplete: boolean;
+  notes: string | null;
+  reason: string | null;
+  completedAt: string | null;
+  task: CarePlanTask;
+  completedBy: {
+    user: { name: string };
+  };
+};
+
+type TaskCompletionData = {
+  completions: TaskCompletion[];
+  pendingTasks: CarePlanTask[];
 };
 
 type VisitData = {
@@ -119,6 +152,8 @@ export function VisitDetail({ id }: { id: string }) {
   const [noteIsIncident, setNoteIsIncident] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [taskData, setTaskData] = useState<TaskCompletionData | null>(null);
+  const [taskUpdates, setTaskUpdates] = useState<Record<string, { completed: boolean; unableToComplete: boolean; notes: string; reason: string }>>({});
 
   async function load() {
     setBusy(true);
@@ -133,11 +168,94 @@ export function VisitDetail({ id }: { id: string }) {
       setVisit(visitBody.data);
       setRole((meBody.data as CurrentUser).role);
       setError("");
+
+      // Load task completions if visit is in progress or completed
+      if (["IN_PROGRESS", "COMPLETED"].includes(visitBody.data.status)) {
+        try {
+          const taskResponse = await fetch(`/api/v1/visits/${id}/task-completions`);
+          if (taskResponse.ok) {
+            const taskBody = await taskResponse.json();
+            setTaskData(taskBody.data);
+          }
+        } catch {
+          // Tasks are optional, don't fail the page load
+        }
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load visit.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function saveTaskCompletions() {
+    const completions = Object.entries(taskUpdates)
+      .filter(([, update]) => update.completed || update.unableToComplete)
+      .map(([taskId, update]) => ({
+        taskId,
+        completed: update.completed,
+        unableToComplete: update.unableToComplete,
+        notes: update.notes || null,
+        reason: update.reason || null,
+      }));
+
+    if (completions.length === 0) return;
+
+    setActionBusy(true);
+    try {
+      const response = await fetch(`/api/v1/visits/${id}/task-completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completions }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Unable to save task completions.");
+      setTaskUpdates({});
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to save task completions.");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  function toggleTaskComplete(taskId: string, completed: boolean) {
+    setTaskUpdates((prev) => ({
+      ...prev,
+      [taskId]: {
+        ...prev[taskId],
+        completed,
+        unableToComplete: completed ? false : prev[taskId]?.unableToComplete ?? false,
+        notes: prev[taskId]?.notes ?? "",
+        reason: prev[taskId]?.reason ?? "",
+      },
+    }));
+  }
+
+  function toggleTaskUnable(taskId: string, unable: boolean) {
+    setTaskUpdates((prev) => ({
+      ...prev,
+      [taskId]: {
+        ...prev[taskId],
+        completed: unable ? false : prev[taskId]?.completed ?? false,
+        unableToComplete: unable,
+        notes: prev[taskId]?.notes ?? "",
+        reason: prev[taskId]?.reason ?? "",
+      },
+    }));
+  }
+
+  function updateTaskNotes(taskId: string, field: "notes" | "reason", value: string) {
+    setTaskUpdates((prev) => ({
+      ...prev,
+      [taskId]: {
+        ...prev[taskId],
+        completed: prev[taskId]?.completed ?? false,
+        unableToComplete: prev[taskId]?.unableToComplete ?? false,
+        notes: field === "notes" ? value : prev[taskId]?.notes ?? "",
+        reason: field === "reason" ? value : prev[taskId]?.reason ?? "",
+      },
+    }));
   }
 
   useEffect(() => {
@@ -425,6 +543,150 @@ export function VisitDetail({ id }: { id: string }) {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Care Plan Tasks */}
+      {taskData && (taskData.pendingTasks.length > 0 || taskData.completions.length > 0) && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+            <ClipboardList size={18} />
+            Care plan tasks
+          </h2>
+
+          {/* Pending Tasks */}
+          {taskData.pendingTasks.length > 0 && canRecordAttendance && visit.status !== "CANCELLED" && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-slate-700">Tasks to complete</h3>
+              <div className="mt-2 space-y-3">
+                {taskData.pendingTasks.map((task) => {
+                  const update = taskUpdates[task.id] || { completed: false, unableToComplete: false, notes: "", reason: "" };
+                  return (
+                    <div key={task.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-900">{task.title}</span>
+                            {task.isRequired && (
+                              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                                Required
+                              </span>
+                            )}
+                          </div>
+                          {task.description && (
+                            <p className="mt-1 text-sm text-slate-600">{task.description}</p>
+                          )}
+                          <p className="mt-1 text-xs text-slate-500">
+                            From: {task.carePlan.title}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleTaskComplete(task.id, !update.completed)}
+                            className={`p-2 rounded-lg border transition ${
+                              update.completed
+                                ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                                : "bg-white border-slate-300 text-slate-400 hover:text-emerald-600 hover:border-emerald-300"
+                            }`}
+                            title="Mark as completed"
+                          >
+                            <CheckCircle size={20} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleTaskUnable(task.id, !update.unableToComplete)}
+                            className={`p-2 rounded-lg border transition ${
+                              update.unableToComplete
+                                ? "bg-amber-100 border-amber-300 text-amber-700"
+                                : "bg-white border-slate-300 text-slate-400 hover:text-amber-600 hover:border-amber-300"
+                            }`}
+                            title="Unable to complete"
+                          >
+                            <XCircle size={20} />
+                          </button>
+                        </div>
+                      </div>
+                      {(update.completed || update.unableToComplete) && (
+                        <div className="mt-3 space-y-2">
+                          {update.unableToComplete && (
+                            <input
+                              type="text"
+                              placeholder="Reason for not completing..."
+                              value={update.reason}
+                              onChange={(e) => updateTaskNotes(task.id, "reason", e.target.value)}
+                              className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm"
+                            />
+                          )}
+                          <input
+                            type="text"
+                            placeholder="Optional notes..."
+                            value={update.notes}
+                            onChange={(e) => updateTaskNotes(task.id, "notes", e.target.value)}
+                            className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {Object.values(taskUpdates).some((u) => u.completed || u.unableToComplete) && (
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={saveTaskCompletions}
+                    disabled={actionBusy}
+                    className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
+                  >
+                    Save task progress
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Completed Tasks */}
+          {taskData.completions.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-slate-700">Completed tasks</h3>
+              <div className="mt-2 divide-y divide-slate-100">
+                {taskData.completions.map((completion) => (
+                  <div key={completion.id} className="py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        {completion.completed ? (
+                          <CheckCircle size={18} className="text-emerald-600" />
+                        ) : completion.unableToComplete ? (
+                          <XCircle size={18} className="text-amber-600" />
+                        ) : (
+                          <Square size={18} className="text-slate-400" />
+                        )}
+                        <span className="font-medium text-slate-900">{completion.task.title}</span>
+                        {completion.task.isRequired && (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                            Required
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-500">
+                        {completion.completedBy.user.name}
+                      </span>
+                    </div>
+                    {(completion.notes || completion.reason) && (
+                      <p className="mt-1 ml-7 text-sm text-slate-600">
+                        {completion.reason && <span className="font-medium">Reason: </span>}
+                        {completion.reason || completion.notes}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {taskData.pendingTasks.length === 0 && taskData.completions.length === 0 && (
+            <p className="mt-4 text-sm text-slate-500">No care plan tasks for this client.</p>
+          )}
         </section>
       )}
 
