@@ -4,8 +4,7 @@ import { hasValidOrigin, jsonError, privateJson, validationError } from "@/lib/a
 import { assertPermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { resolveTenantContext } from "@/lib/tenant";
-import { clientSchema, emergencyContactSchema } from "@/lib/validation";
-import { z } from "zod";
+import { clientSchema } from "@/lib/validation";
 
 function clientDetailFields(role: Role) {
   if (role === "CARE_WORKER") {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Building2, Heart, LayoutDashboard, LogOut, Settings2, UsersRound } from "lucide-react";
+import { Building2, Calendar, Clock, Heart, LayoutDashboard, LogOut, Settings2, UsersRound } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { auth, signOut } from "@/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -9,6 +9,8 @@ import { resolveTenantContext } from "@/lib/tenant";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Heart },
+  { href: "/visits", label: "Visits", icon: Calendar },
+  { href: "/shifts", label: "Shifts", icon: Clock },
   { href: "/staff", label: "Staff directory", icon: UsersRound },
   { href: "/settings/organisation", label: "Organisation", icon: Building2 },
   { href: "/settings/users", label: "Users & access", icon: Settings2 },
@@ -71,6 +73,8 @@ function Navigation({ mobile = false, role }: { mobile?: boolean; role: Role }) 
       {navItems
         .filter(({ href }) => {
           if (href === "/clients") return hasPermission(role, "clients:read");
+          if (href === "/visits") return hasPermission(role, "visits:read");
+          if (href === "/shifts") return hasPermission(role, "shifts:read");
           if (href === "/staff") return hasPermission(role, "staff:read");
           if (href === "/settings/organisation") {
             return hasPermission(role, "organisation:update");

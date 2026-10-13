@@ -1,7 +1,7 @@
 import { Prisma, VisitStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { hasValidOrigin, jsonError, privateJson, validationError } from "@/lib/api";
-import { assertPermission, canAccessVisit } from "@/lib/permissions";
+import { assertPermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { resolveTenantContext } from "@/lib/tenant";
 import { careVisitSchema } from "@/lib/validation";

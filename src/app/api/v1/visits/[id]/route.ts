@@ -3,7 +3,7 @@ import { hasValidOrigin, jsonError, privateJson, validationError } from "@/lib/a
 import { assertPermission, canAccessVisit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { resolveTenantContext } from "@/lib/tenant";
-import { careVisitSchema, visitCancellationSchema } from "@/lib/validation";
+import { careVisitSchema } from "@/lib/validation";
 
 export async function GET(
   request: Request,
