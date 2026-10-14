@@ -40,7 +40,21 @@ export type Permission =
   | "incidents:read"
   | "incidents:create"
   | "incidents:update"
-  | "incidents:review";
+  | "incidents:review"
+  // Phase 4: Availability permissions
+  | "availability:read"
+  | "availability:update"
+  | "availability:manage"
+  // Phase 4: Absence permissions
+  | "absence:read"
+  | "absence:request"
+  | "absence:approve"
+  // Phase 4: Scheduling permissions
+  | "rota:read"
+  | "rota:manage"
+  | "scheduling:override"
+  // Phase 4: Notification permissions
+  | "notifications:read";
 
 const grants: Record<Role, readonly Permission[]> = {
   PLATFORM_ADMIN: ["organisation:read", "organisation:update"],
@@ -79,6 +93,17 @@ const grants: Record<Role, readonly Permission[]> = {
     "incidents:create",
     "incidents:update",
     "incidents:review",
+    // Phase 4
+    "availability:read",
+    "availability:update",
+    "availability:manage",
+    "absence:read",
+    "absence:request",
+    "absence:approve",
+    "rota:read",
+    "rota:manage",
+    "scheduling:override",
+    "notifications:read",
   ],
   MANAGER: [
     "organisation:read",
@@ -111,6 +136,17 @@ const grants: Record<Role, readonly Permission[]> = {
     "incidents:create",
     "incidents:update",
     "incidents:review",
+    // Phase 4
+    "availability:read",
+    "availability:update",
+    "availability:manage",
+    "absence:read",
+    "absence:request",
+    "absence:approve",
+    "rota:read",
+    "rota:manage",
+    "scheduling:override",
+    "notifications:read",
   ],
   COORDINATOR: [
     "organisation:read",
@@ -131,6 +167,16 @@ const grants: Record<Role, readonly Permission[]> = {
     "incidents:create",
     "incidents:update",
     "incidents:review",
+    // Phase 4: Coordinators can manage rotas and approve leave
+    "availability:read",
+    "availability:manage",
+    "absence:read",
+    "absence:request",
+    "absence:approve",
+    "rota:read",
+    "rota:manage",
+    "scheduling:override",
+    "notifications:read",
   ],
   CARE_WORKER: [
     "staff:read",
@@ -144,6 +190,13 @@ const grants: Record<Role, readonly Permission[]> = {
     "tasks:complete",
     "incidents:read",
     "incidents:create",
+    // Phase 4: Care workers can view their own rota and manage their availability
+    "availability:read",
+    "availability:update",
+    "absence:read",
+    "absence:request",
+    "rota:read",
+    "notifications:read",
   ],
 };
 

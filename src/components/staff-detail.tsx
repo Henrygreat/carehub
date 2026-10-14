@@ -113,6 +113,8 @@ export function StaffDetail({ id }: { id: string }) {
               {canUpdate && <button onClick={() => setEditing(true)} className="h-10 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">Edit profile</button>}
               {role === "CARE_WORKER" && <button onClick={() => setEditingContact(true)} className="h-10 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">Edit contact details</button>}
               {["ORG_ADMIN", "MANAGER"].includes(role) && <Link href={`/staff/${id}/employment`} className="h-10 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Employment history</Link>}
+              <Link href={`/staff/${id}/availability`} className="h-10 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Availability</Link>
+              <Link href={`/staff/${id}/absences`} className="h-10 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Absences</Link>
               {canDeactivate && staff.employmentStatus !== "INACTIVE" && <button onClick={deactivate} className="h-10 rounded-lg border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50">Deactivate</button>}
             </div>
             {editingContact && role === "CARE_WORKER" && (

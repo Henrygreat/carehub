@@ -102,6 +102,49 @@ enum IncidentStatus {
   CLOSED
 }
 
+// Phase 4: Scheduling and Workforce Management Enums
+
+enum AbsenceType {
+  ANNUAL_LEAVE
+  SICK_LEAVE
+  UNPAID_LEAVE
+  COMPASSIONATE
+  MATERNITY
+  PATERNITY
+  UNAVAILABLE
+  OTHER
+}
+
+enum AbsenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum NotificationType {
+  ASSIGNMENT_NEW
+  ASSIGNMENT_CHANGED
+  ASSIGNMENT_CANCELLED
+  VISIT_UPCOMING
+  VISIT_MISSED
+  VISIT_UNASSIGNED
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  CONFLICT_DETECTED
+  GENERAL
+}
+
+enum ConflictType {
+  OVERLAP
+  DOUBLE_BOOKED
+  DURING_LEAVE
+  OUTSIDE_AVAILABILITY
+  INSUFFICIENT_TRAVEL_TIME
+  EXCEEDS_HOURS
+}
+
 model Organisation {
   id            String             @id @default(uuid()) @db.Uuid
   name          String
@@ -122,6 +165,9 @@ model Organisation {
   // Phase 3
   carePlans     CarePlan[]
   incidents     Incident[]
+  // Phase 4
+  notifications        Notification[]
+  travelTimeEstimates  TravelTimeEstimate[]
 
   @@map("organisations")
 }
@@ -160,6 +206,10 @@ model Membership {
   taskCompletions      VisitTaskCompletion[]
   reportedIncidents    Incident[]            @relation("IncidentReporter")
   reviewingIncidents   Incident[]            @relation("IncidentReviewer")
+  // Phase 4
+  notifications         Notification[]
+  reviewedAbsences      StaffAbsence[]         @relation("AbsenceReviewer")
+  schedulingOverrides   SchedulingOverride[]
 
   @@unique([userId, organisationId])
   @@unique([id, organisationId])
@@ -188,6 +238,10 @@ model StaffProfile {
   employmentRecords     EmploymentRecord[]
   careVisits            CareVisit[]
   shiftAssignments      ShiftAssignment[]
+  // Phase 4
+  availability          StaffAvailability[]
+  absences              StaffAbsence[]
+  schedulingOverrides   SchedulingOverride[]
 
   @@unique([employeeNumber, organisationId])
   @@unique([id, organisationId])
@@ -352,6 +406,8 @@ model CareVisit {
   // Phase 3
   taskCompletions  VisitTaskCompletion[]
   incidents        Incident[]
+  // Phase 4
+  schedulingOverrides SchedulingOverride[]
 
   @@index([organisationId, scheduledDate])
   @@index([organisationId, clientId])
@@ -403,6 +459,8 @@ model Shift {
   recurrence       ShiftRecurrence?  @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   assignments      ShiftAssignment[]
   careNotes        CareNote[]
+  // Phase 4
+  schedulingOverrides SchedulingOverride[]
 
   @@unique([shiftReference, organisationId])
   @@index([organisationId, scheduledDate])
@@ -580,4 +638,123 @@ model Incident {
   @@index([organisationId, reviewerId])
   @@index([organisationId, createdAt])
   @@map("incidents")
+}
+
+// =============================================================================
+// Phase 4: Scheduling and Workforce Management Models
+// =============================================================================
+
+// Staff regular availability patterns
+model StaffAvailability {
+  id             String       @id @default(uuid()) @db.Uuid
+  organisationId String       @db.Uuid
+  staffProfileId String       @db.Uuid
+  dayOfWeek      Int          // 0=Sunday, 6=Saturday
+  startTime      DateTime     @db.Time
+  endTime        DateTime     @db.Time
+  isPreferred    Boolean      @default(false)
+  effectiveFrom  DateTime     @db.Date
+  effectiveTo    DateTime?    @db.Date
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  staffProfile   StaffProfile @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Cascade)
+
+  @@unique([staffProfileId, dayOfWeek, effectiveFrom])
+  @@index([organisationId, staffProfileId])
+  @@index([staffProfileId, dayOfWeek])
+  @@map("staff_availability")
+}
+
+// Staff absences (leave, sickness, unavailable dates)
+model StaffAbsence {
+  id             String        @id @default(uuid()) @db.Uuid
+  organisationId String        @db.Uuid
+  staffProfileId String        @db.Uuid
+  type           AbsenceType
+  status         AbsenceStatus @default(PENDING)
+  startDate      DateTime      @db.Date
+  endDate        DateTime      @db.Date
+  startTime      DateTime?     @db.Time  // For partial day absences
+  endTime        DateTime?     @db.Time
+  isFullDay      Boolean       @default(true)
+  reason         String?
+  notes          String?
+  reviewedById   String?       @db.Uuid
+  reviewedAt     DateTime?
+  reviewNotes    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  staffProfile   StaffProfile  @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Cascade)
+  reviewedBy     Membership?   @relation("AbsenceReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, staffProfileId])
+  @@index([organisationId, status])
+  @@index([organisationId, startDate, endDate])
+  @@index([staffProfileId, startDate, endDate])
+  @@map("staff_absences")
+}
+
+// Internal notifications
+model Notification {
+  id             String           @id @default(uuid()) @db.Uuid
+  organisationId String           @db.Uuid
+  recipientId    String           @db.Uuid // Membership ID
+  type           NotificationType
+  title          String
+  message        String
+  linkUrl        String?
+  linkLabel      String?
+  entityType     String?
+  entityId       String?
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  recipient      Membership       @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId, recipientId, isRead])
+  @@index([recipientId, createdAt])
+  @@index([organisationId, createdAt])
+  @@map("notifications")
+}
+
+// Scheduling conflict overrides (when a conflict is acknowledged)
+model SchedulingOverride {
+  id              String       @id @default(uuid()) @db.Uuid
+  organisationId  String       @db.Uuid
+  visitId         String?      @db.Uuid
+  shiftId         String?      @db.Uuid
+  staffProfileId  String       @db.Uuid
+  conflictType    ConflictType
+  conflictDetails Json
+  reason          String
+  approvedById    String       @db.Uuid
+  approvedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  visit           CareVisit?   @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  shift           Shift?       @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  staffProfile    StaffProfile @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Cascade)
+  approvedBy      Membership   @relation(fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([organisationId, visitId])
+  @@index([organisationId, shiftId])
+  @@index([organisationId, staffProfileId])
+  @@map("scheduling_overrides")
+}
+
+// Travel time estimates between locations (optional)
+model TravelTimeEstimate {
+  id               String       @id @default(uuid()) @db.Uuid
+  organisationId   String       @db.Uuid
+  fromPostcode     String
+  toPostcode       String
+  estimatedMinutes Int
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, fromPostcode, toPostcode])
+  @@index([organisationId])
+  @@map("travel_time_estimates")
 }

@@ -2,11 +2,15 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
+  Bell,
   BriefcaseBusiness,
   Calendar,
+  CalendarRange,
   CheckCircle,
   Clock,
   Heart,
+  Palmtree,
+  TrendingUp,
   UserRoundPlus,
   UsersRound,
   XCircle,
@@ -23,6 +27,9 @@ export default async function DashboardPage() {
   const canViewClients = hasPermission(context.membership.role, "clients:read");
   const canViewVisits = hasPermission(context.membership.role, "visits:read");
   const canViewShifts = hasPermission(context.membership.role, "shifts:read");
+  const canViewRota = hasPermission(context.membership.role, "rota:read");
+  const canApproveAbsence = hasPermission(context.membership.role, "absence:approve");
+  const canViewNotifications = hasPermission(context.membership.role, "notifications:read");
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -61,6 +68,14 @@ export default async function DashboardPage() {
       : {}),
   };
 
+  // Calculate week boundaries for utilization
+  const weekStart = new Date(today);
+  const dayOfWeek = weekStart.getDay();
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  weekStart.setDate(weekStart.getDate() + diff);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
   // Fetch all metrics in parallel
   const [
     totalStaff,
@@ -73,6 +88,11 @@ export default async function DashboardPage() {
     unassignedVisitsToday,
     todaysShifts,
     unassignedShiftsToday,
+    staffOnLeaveToday,
+    pendingLeaveRequests,
+    unreadNotifications,
+    weeklyVisitsCompleted,
+    weeklyVisitsTotal,
   ] = await Promise.all([
     // Staff metrics
     canViewStaff ? db.staffProfile.count({ where: staffScope }) : Promise.resolve(0),
@@ -149,6 +169,55 @@ export default async function DashboardPage() {
             scheduledDate: { gte: today, lt: tomorrow },
             status: { not: "CANCELLED" },
             assignments: { none: {} },
+          },
+        })
+      : Promise.resolve(0),
+    // Phase 4: Staff on leave today
+    canViewStaff && !staffProfileId
+      ? db.staffAbsence.count({
+          where: {
+            organisationId: context.organisation.id,
+            status: "APPROVED",
+            startDate: { lte: today },
+            endDate: { gte: today },
+          },
+        })
+      : Promise.resolve(0),
+    // Phase 4: Pending leave requests
+    canApproveAbsence
+      ? db.staffAbsence.count({
+          where: {
+            organisationId: context.organisation.id,
+            status: "PENDING",
+          },
+        })
+      : Promise.resolve(0),
+    // Phase 4: Unread notifications
+    canViewNotifications
+      ? db.notification.count({
+          where: {
+            recipientId: context.membership.id,
+            isRead: false,
+          },
+        })
+      : Promise.resolve(0),
+    // Phase 4: Weekly visits completed (for utilization)
+    canViewVisits && !staffProfileId
+      ? db.careVisit.count({
+          where: {
+            organisationId: context.organisation.id,
+            scheduledDate: { gte: weekStart, lt: weekEnd },
+            status: "COMPLETED",
+          },
+        })
+      : Promise.resolve(0),
+    // Phase 4: Weekly visits total (for utilization)
+    canViewVisits && !staffProfileId
+      ? db.careVisit.count({
+          where: {
+            organisationId: context.organisation.id,
+            scheduledDate: { gte: weekStart, lt: weekEnd },
+            status: { not: "CANCELLED" },
           },
         })
       : Promise.resolve(0),
@@ -263,6 +332,53 @@ export default async function DashboardPage() {
         href: "/shifts",
       });
     }
+  }
+
+  // Phase 4: Workforce metrics
+  if (canViewStaff && staffOnLeaveToday > 0 && !staffProfileId) {
+    metrics.push({
+      label: "Staff on leave",
+      value: staffOnLeaveToday,
+      icon: Palmtree,
+      note: "Absent today",
+      color: "amber",
+      href: "/staff",
+    });
+  }
+
+  if (canApproveAbsence && pendingLeaveRequests > 0) {
+    metrics.push({
+      label: "Leave requests",
+      value: pendingLeaveRequests,
+      icon: Palmtree,
+      note: "Awaiting approval",
+      color: "amber",
+      href: "/staff",
+    });
+  }
+
+  if (canViewNotifications && unreadNotifications > 0) {
+    metrics.push({
+      label: "Unread notifications",
+      value: unreadNotifications,
+      icon: Bell,
+      note: "New updates for you",
+      color: "teal",
+      href: "/notifications",
+    });
+  }
+
+  // Weekly completion rate
+  if (canViewVisits && weeklyVisitsTotal > 0 && !staffProfileId) {
+    const completionRate = Math.round((weeklyVisitsCompleted / weeklyVisitsTotal) * 100);
+    metrics.push({
+      label: "Weekly completion",
+      value: completionRate,
+      icon: TrendingUp,
+      note: `${weeklyVisitsCompleted}/${weeklyVisitsTotal} visits this week`,
+      color: completionRate >= 90 ? "emerald" : completionRate >= 75 ? "amber" : "rose",
+      href: "/rota",
+    });
   }
 
   return (
@@ -392,6 +508,44 @@ export default async function DashboardPage() {
               </div>
               <Link
                 href="/shifts"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-teal-700 hover:text-teal-900"
+              >
+                View <ArrowUpRight size={16} aria-hidden="true" />
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {canViewRota && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-900">Rota</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Full schedule calendar view.
+                </p>
+              </div>
+              <Link
+                href="/rota"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-teal-700 hover:text-teal-900"
+              >
+                View <ArrowUpRight size={16} aria-hidden="true" />
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {canViewNotifications && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-900">Notifications</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Stay updated with changes.
+                </p>
+              </div>
+              <Link
+                href="/notifications"
                 className="inline-flex items-center gap-1 text-sm font-semibold text-teal-700 hover:text-teal-900"
               >
                 View <ArrowUpRight size={16} aria-hidden="true" />

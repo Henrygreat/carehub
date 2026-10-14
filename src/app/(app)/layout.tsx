@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, Building2, Calendar, ClipboardList, Clock, Eye, Heart, LayoutDashboard, LogOut, Settings2, UsersRound } from "lucide-react";
+import { AlertTriangle, Bell, Building2, Calendar, CalendarRange, ClipboardList, Clock, Eye, Heart, LayoutDashboard, LogOut, Settings2, UsersRound } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { auth, signOut } from "@/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -9,12 +9,14 @@ import { resolveTenantContext } from "@/lib/tenant";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/monitoring", label: "Monitoring", icon: Eye },
+  { href: "/rota", label: "Rota", icon: CalendarRange },
   { href: "/clients", label: "Clients", icon: Heart },
   { href: "/visits", label: "Visits", icon: Calendar },
   { href: "/shifts", label: "Shifts", icon: Clock },
   { href: "/care-plans", label: "Care plans", icon: ClipboardList },
   { href: "/incidents", label: "Incidents", icon: AlertTriangle },
   { href: "/staff", label: "Staff directory", icon: UsersRound },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings/organisation", label: "Organisation", icon: Building2 },
   { href: "/settings/users", label: "Users & access", icon: Settings2 },
 ];
@@ -79,12 +81,14 @@ function Navigation({ mobile = false, role }: { mobile?: boolean; role: Role }) 
             // Coordinators and above can view monitoring
             return ["ORG_ADMIN", "MANAGER", "COORDINATOR"].includes(role);
           }
+          if (href === "/rota") return hasPermission(role, "rota:read");
           if (href === "/clients") return hasPermission(role, "clients:read");
           if (href === "/visits") return hasPermission(role, "visits:read");
           if (href === "/shifts") return hasPermission(role, "shifts:read");
           if (href === "/care-plans") return hasPermission(role, "carePlans:read");
           if (href === "/incidents") return hasPermission(role, "incidents:read");
           if (href === "/staff") return hasPermission(role, "staff:read");
+          if (href === "/notifications") return hasPermission(role, "notifications:read");
           if (href === "/settings/organisation") {
             return hasPermission(role, "organisation:update");
           }

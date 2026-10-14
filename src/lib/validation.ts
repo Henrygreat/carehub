@@ -261,3 +261,96 @@ export const incidentUpdateSchema = z.object({
   followUpRequired: z.boolean().optional(),
   followUpNotes: z.string().max(5000).nullable().optional(),
 });
+
+// =============================================================================
+// Phase 4: Scheduling and Workforce Management Schemas
+// =============================================================================
+
+// Time string validation (HH:MM format)
+const timeStringPhase4 = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in HH:MM format");
+
+export const staffAvailabilitySchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6), // 0=Sunday, 6=Saturday
+  startTime: timeStringPhase4,
+  endTime: timeStringPhase4,
+  isPreferred: z.boolean().default(false),
+  effectiveFrom: z.coerce.date(),
+  effectiveTo: z.coerce.date().nullable().optional(),
+});
+
+export const staffAvailabilityBatchSchema = z.object({
+  availability: z.array(staffAvailabilitySchema),
+});
+
+export const staffAbsenceSchema = z.object({
+  type: z.enum([
+    "ANNUAL_LEAVE",
+    "SICK_LEAVE",
+    "UNPAID_LEAVE",
+    "COMPASSIONATE",
+    "MATERNITY",
+    "PATERNITY",
+    "UNAVAILABLE",
+    "OTHER",
+  ]),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  startTime: timeStringPhase4.nullable().optional(),
+  endTime: timeStringPhase4.nullable().optional(),
+  isFullDay: z.boolean().default(true),
+  reason: z.string().max(500).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+export const absenceReviewSchema = z.object({
+  status: z.enum(["APPROVED", "REJECTED"]),
+  reviewNotes: z.string().max(1000).nullable().optional(),
+});
+
+export const schedulingOverrideSchema = z.object({
+  visitId: z.string().uuid().nullable().optional(),
+  shiftId: z.string().uuid().nullable().optional(),
+  staffProfileId: z.string().uuid(),
+  conflictType: z.enum([
+    "OVERLAP",
+    "DOUBLE_BOOKED",
+    "DURING_LEAVE",
+    "OUTSIDE_AVAILABILITY",
+    "INSUFFICIENT_TRAVEL_TIME",
+    "EXCEEDS_HOURS",
+  ]),
+  conflictDetails: z.object({}).passthrough(),
+  reason: z.string().trim().min(5).max(500),
+});
+
+export const travelTimeEstimateSchema = z.object({
+  fromPostcode: z.string().trim().min(2).max(10),
+  toPostcode: z.string().trim().min(2).max(10),
+  estimatedMinutes: z.number().int().min(1).max(480),
+  notes: z.string().max(500).nullable().optional(),
+});
+
+// Calendar/rota query parameters
+export const rotaQuerySchema = z.object({
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  staffProfileId: z.string().uuid().optional(),
+  clientId: z.string().uuid().optional(),
+  status: z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "MISSED", "CANCELLED"]).optional(),
+  unassignedOnly: z.coerce.boolean().optional(),
+});
+
+// Drag-drop reschedule
+export const visitRescheduleSchema = z.object({
+  scheduledDate: z.coerce.date(),
+  scheduledStart: timeStringPhase4,
+  scheduledEnd: timeStringPhase4,
+  staffProfileId: z.string().uuid().nullable().optional(),
+  overrideConflicts: z.boolean().default(false),
+  overrideReason: z.string().max(500).optional(),
+});
+
+// Notification mark as read
+export const notificationReadSchema = z.object({
+  notificationIds: z.array(z.string().uuid()),
+});
