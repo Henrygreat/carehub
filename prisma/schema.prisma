@@ -15,6 +15,19 @@ enum Role {
   CARE_WORKER
 }
 
+// Phase 5: Multi-Organisation and Multi-Branch Enums
+
+enum OrganisationStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum EmploymentStatus {
   ACTIVE
   ON_LEAVE
@@ -146,70 +159,103 @@ enum ConflictType {
 }
 
 model Organisation {
-  id            String             @id @default(uuid()) @db.Uuid
-  name          String
-  slug          String             @unique
-  brandName     String?
-  brandColour   String             @default("#0f766e")
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  memberships   Membership[]
-  staffProfiles StaffProfile[]
-  employment    EmploymentRecord[]
-  invitations   Invitation[]
-  auditLogs     AuditLog[]
-  clients       Client[]
-  careVisits    CareVisit[]
-  shifts        Shift[]
-  careNotes     CareNote[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  name                    String
+  slug                    String                   @unique
+  brandName               String?
+  brandColour             String                   @default("#0f766e")
+  // Phase 5: Extended organisation fields
+  status                  OrganisationStatus       @default(ACTIVE)
+  tradingName             String?
+  companyRegistrationNo   String?
+  contactEmail            String?
+  contactPhone            String?
+  registeredAddressLine1  String?
+  registeredAddressLine2  String?
+  registeredCity          String?
+  registeredPostcode      String?
+  registeredCountry       String?                  @default("United Kingdom")
+  operatingAddressLine1   String?
+  operatingAddressLine2   String?
+  operatingCity           String?
+  operatingPostcode       String?
+  operatingCountry        String?                  @default("United Kingdom")
+  // CQC regulatory fields (optional - not all providers registered with CQC)
+  cqcProviderId           String?
+  cqcProviderName         String?
+  cqcRegisteredManager    String?
+  // Operational settings
+  timezone                String                   @default("Europe/London")
+  // Timestamps
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  suspendedAt             DateTime?
+  // Relations
+  memberships             Membership[]
+  staffProfiles           StaffProfile[]
+  employment              EmploymentRecord[]
+  invitations             Invitation[]
+  auditLogs               AuditLog[]
+  clients                 Client[]
+  careVisits              CareVisit[]
+  shifts                  Shift[]
+  careNotes               CareNote[]
   // Phase 3
-  carePlans     CarePlan[]
-  incidents     Incident[]
+  carePlans               CarePlan[]
+  incidents               Incident[]
   // Phase 4
-  notifications        Notification[]
-  travelTimeEstimates  TravelTimeEstimate[]
+  notifications           Notification[]
+  travelTimeEstimates     TravelTimeEstimate[]
+  // Phase 5: Branches
+  branches                Branch[]
+  organisationInvitations OrganisationInvitation[]
 
   @@map("organisations")
 }
 
 model User {
-  id                  String               @id @default(uuid()) @db.Uuid
-  name                String
-  email               String               @unique
-  passwordHash        String
-  emailVerified       DateTime?
-  disabledAt          DateTime?
-  sessionVersion      Int                  @default(0)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  memberships         Membership[]
-  passwordResetTokens PasswordResetToken[]
-  auditEvents         AuditLog[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  name                    String
+  email                   String                   @unique
+  passwordHash            String
+  emailVerified           DateTime?
+  disabledAt              DateTime?
+  sessionVersion          Int                      @default(0)
+  // Phase 5: Platform admin flag
+  isPlatformAdmin         Boolean                  @default(false)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  memberships             Membership[]
+  passwordResetTokens     PasswordResetToken[]
+  auditEvents             AuditLog[]
+  // Phase 5: Platform admin relations
+  organisationInvitations OrganisationInvitation[]
+  platformAuditLogs       PlatformAuditLog[]
 
   @@map("users")
 }
 
 model Membership {
-  id                   String                @id @default(uuid()) @db.Uuid
-  userId               String                @db.Uuid
-  organisationId       String                @db.Uuid
-  role                 Role
-  active               Boolean               @default(true)
-  createdAt            DateTime              @default(now())
-  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  staffProfiles        StaffProfile[]        @relation("StaffMembership")
-  sentInvitations      Invitation[]          @relation("InvitedBy")
-  auditLogs            AuditLog[]
-  careNotes            CareNote[]
+  id                  String                @id @default(uuid()) @db.Uuid
+  userId              String                @db.Uuid
+  organisationId      String                @db.Uuid
+  role                Role
+  active              Boolean               @default(true)
+  createdAt           DateTime              @default(now())
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation        Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  staffProfiles       StaffProfile[]        @relation("StaffMembership")
+  sentInvitations     Invitation[]          @relation("InvitedBy")
+  auditLogs           AuditLog[]
+  careNotes           CareNote[]
   // Phase 3
-  taskCompletions      VisitTaskCompletion[]
-  reportedIncidents    Incident[]            @relation("IncidentReporter")
-  reviewingIncidents   Incident[]            @relation("IncidentReviewer")
+  taskCompletions     VisitTaskCompletion[]
+  reportedIncidents   Incident[]            @relation("IncidentReporter")
+  reviewingIncidents  Incident[]            @relation("IncidentReviewer")
   // Phase 4
-  notifications         Notification[]
-  reviewedAbsences      StaffAbsence[]         @relation("AbsenceReviewer")
-  schedulingOverrides   SchedulingOverride[]
+  notifications       Notification[]
+  reviewedAbsences    StaffAbsence[]        @relation("AbsenceReviewer")
+  schedulingOverrides SchedulingOverride[]
 
   @@unique([userId, organisationId])
   @@unique([id, organisationId])
@@ -218,23 +264,23 @@ model Membership {
 }
 
 model StaffProfile {
-  id                    String             @id @default(uuid()) @db.Uuid
-  organisationId        String             @db.Uuid
-  membershipUserId      String?            @db.Uuid
+  id                    String               @id @default(uuid()) @db.Uuid
+  organisationId        String               @db.Uuid
+  membershipUserId      String?              @db.Uuid
   employeeNumber        String
   firstName             String
   lastName              String
   email                 String
   phone                 String?
-  employmentStatus      EmploymentStatus   @default(ACTIVE)
-  employmentType        EmploymentType     @default(FULL_TIME)
+  employmentStatus      EmploymentStatus     @default(ACTIVE)
+  employmentType        EmploymentType       @default(FULL_TIME)
   jobTitle              String
-  startDate             DateTime           @db.Date
-  contractedWeeklyHours Decimal            @db.Decimal(5, 2)
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  organisation          Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  membership            Membership?        @relation("StaffMembership", fields: [membershipUserId, organisationId], references: [userId, organisationId], onDelete: Restrict)
+  startDate             DateTime             @db.Date
+  contractedWeeklyHours Decimal              @db.Decimal(5, 2)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  organisation          Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  membership            Membership?          @relation("StaffMembership", fields: [membershipUserId, organisationId], references: [userId, organisationId], onDelete: Restrict)
   employmentRecords     EmploymentRecord[]
   careVisits            CareVisit[]
   shiftAssignments      ShiftAssignment[]
@@ -242,6 +288,8 @@ model StaffProfile {
   availability          StaffAvailability[]
   absences              StaffAbsence[]
   schedulingOverrides   SchedulingOverride[]
+  // Phase 5: Branch assignments
+  branchAssignments     BranchAssignment[]
 
   @@unique([employeeNumber, organisationId])
   @@unique([id, organisationId])
@@ -382,30 +430,30 @@ model EmergencyContact {
 }
 
 model CareVisit {
-  id               String               @id @default(uuid()) @db.Uuid
-  organisationId   String               @db.Uuid
-  clientId         String               @db.Uuid
-  staffProfileId   String?              @db.Uuid
-  recurrenceId     String?              @db.Uuid
-  scheduledDate    DateTime             @db.Date
-  scheduledStart   DateTime             @db.Time
-  scheduledEnd     DateTime             @db.Time
-  actualStart      DateTime?
-  actualEnd        DateTime?
-  status           VisitStatus          @default(SCHEDULED)
-  visitType        String?
-  notes            String?
-  cancellationNote String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  organisation     Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  client           Client               @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Restrict)
-  staffProfile     StaffProfile?        @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Restrict)
-  recurrence       VisitRecurrence?     @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  careNotes        CareNote[]
+  id                  String                @id @default(uuid()) @db.Uuid
+  organisationId      String                @db.Uuid
+  clientId            String                @db.Uuid
+  staffProfileId      String?               @db.Uuid
+  recurrenceId        String?               @db.Uuid
+  scheduledDate       DateTime              @db.Date
+  scheduledStart      DateTime              @db.Time
+  scheduledEnd        DateTime              @db.Time
+  actualStart         DateTime?
+  actualEnd           DateTime?
+  status              VisitStatus           @default(SCHEDULED)
+  visitType           String?
+  notes               String?
+  cancellationNote    String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  organisation        Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  client              Client                @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Restrict)
+  staffProfile        StaffProfile?         @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Restrict)
+  recurrence          VisitRecurrence?      @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  careNotes           CareNote[]
   // Phase 3
-  taskCompletions  VisitTaskCompletion[]
-  incidents        Incident[]
+  taskCompletions     VisitTaskCompletion[]
+  incidents           Incident[]
   // Phase 4
   schedulingOverrides SchedulingOverride[]
 
@@ -440,25 +488,25 @@ model VisitRecurrence {
 }
 
 model Shift {
-  id               String            @id @default(uuid()) @db.Uuid
-  organisationId   String            @db.Uuid
-  shiftReference   String
-  locationName     String
-  locationAddress  String?
-  scheduledDate    DateTime          @db.Date
-  scheduledStart   DateTime
-  scheduledEnd     DateTime
-  status           ShiftStatus       @default(SCHEDULED)
-  notes            String?
-  cancellationNote String?
-  isOvernight      Boolean           @default(false)
-  recurrenceId     String?           @db.Uuid
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  organisation     Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  recurrence       ShiftRecurrence?  @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  assignments      ShiftAssignment[]
-  careNotes        CareNote[]
+  id                  String               @id @default(uuid()) @db.Uuid
+  organisationId      String               @db.Uuid
+  shiftReference      String
+  locationName        String
+  locationAddress     String?
+  scheduledDate       DateTime             @db.Date
+  scheduledStart      DateTime
+  scheduledEnd        DateTime
+  status              ShiftStatus          @default(SCHEDULED)
+  notes               String?
+  cancellationNote    String?
+  isOvernight         Boolean              @default(false)
+  recurrenceId        String?              @db.Uuid
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  organisation        Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  recurrence          ShiftRecurrence?     @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  assignments         ShiftAssignment[]
+  careNotes           CareNote[]
   // Phase 4
   schedulingOverrides SchedulingOverride[]
 
@@ -511,22 +559,22 @@ model ShiftAssignment {
 }
 
 model CareNote {
-  id                   String      @id @default(uuid()) @db.Uuid
-  organisationId       String      @db.Uuid
-  visitId              String?     @db.Uuid
-  shiftId              String?     @db.Uuid
-  clientId             String?     @db.Uuid
-  authorMembershipId   String      @db.Uuid
-  content              String
-  isIncident           Boolean     @default(false)
-  isPrivate            Boolean     @default(false)
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  organisation         Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  visit                CareVisit?  @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  shift                Shift?      @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  client               Client?     @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Cascade)
-  authorMembership     Membership  @relation(fields: [authorMembershipId, organisationId], references: [id, organisationId], onDelete: Cascade)
+  id                 String       @id @default(uuid()) @db.Uuid
+  organisationId     String       @db.Uuid
+  visitId            String?      @db.Uuid
+  shiftId            String?      @db.Uuid
+  clientId           String?      @db.Uuid
+  authorMembershipId String       @db.Uuid
+  content            String
+  isIncident         Boolean      @default(false)
+  isPrivate          Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  organisation       Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  visit              CareVisit?   @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  shift              Shift?       @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  client             Client?      @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Cascade)
+  authorMembership   Membership   @relation(fields: [authorMembershipId, organisationId], references: [id, organisationId], onDelete: Cascade)
 
   @@index([organisationId, visitId])
   @@index([organisationId, shiftId])
@@ -540,22 +588,22 @@ model CareNote {
 // =============================================================================
 
 model CarePlan {
-  id               String         @id @default(uuid()) @db.Uuid
-  organisationId   String         @db.Uuid
-  clientId         String         @db.Uuid
-  title            String
-  description      String?
-  status           CarePlanStatus @default(DRAFT)
-  startDate        DateTime       @db.Date
-  reviewDate       DateTime?      @db.Date
-  endDate          DateTime?      @db.Date
+  id                  String         @id @default(uuid()) @db.Uuid
+  organisationId      String         @db.Uuid
+  clientId            String         @db.Uuid
+  title               String
+  description         String?
+  status              CarePlanStatus @default(DRAFT)
+  startDate           DateTime       @db.Date
+  reviewDate          DateTime?      @db.Date
+  endDate             DateTime?      @db.Date
   specialInstructions String?
-  isConfidential   Boolean        @default(false)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  organisation     Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  client           Client         @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Restrict)
-  tasks            CarePlanTask[]
+  isConfidential      Boolean        @default(false)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  organisation        Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  client              Client         @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: Restrict)
+  tasks               CarePlanTask[]
 
   @@index([organisationId, clientId])
   @@index([organisationId, status])
@@ -564,38 +612,38 @@ model CarePlan {
 }
 
 model CarePlanTask {
-  id            String                @id @default(uuid()) @db.Uuid
-  carePlanId    String                @db.Uuid
-  title         String
-  description   String?
-  frequency     TaskFrequency         @default(EVERY_VISIT)
-  isRequired    Boolean               @default(true)
-  sortOrder     Int                   @default(0)
-  isActive      Boolean               @default(true)
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  carePlan      CarePlan              @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
-  completions   VisitTaskCompletion[]
+  id          String                @id @default(uuid()) @db.Uuid
+  carePlanId  String                @db.Uuid
+  title       String
+  description String?
+  frequency   TaskFrequency         @default(EVERY_VISIT)
+  isRequired  Boolean               @default(true)
+  sortOrder   Int                   @default(0)
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  carePlan    CarePlan              @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  completions VisitTaskCompletion[]
 
   @@index([carePlanId, isActive])
   @@map("care_plan_tasks")
 }
 
 model VisitTaskCompletion {
-  id                String       @id @default(uuid()) @db.Uuid
-  visitId           String       @db.Uuid
-  taskId            String       @db.Uuid
-  completedById     String       @db.Uuid
-  completed         Boolean      @default(false)
-  unableToComplete  Boolean      @default(false)
-  notes             String?
-  reason            String?
-  completedAt       DateTime?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  visit             CareVisit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  task              CarePlanTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  completedBy       Membership   @relation(fields: [completedById], references: [id], onDelete: Restrict)
+  id               String       @id @default(uuid()) @db.Uuid
+  visitId          String       @db.Uuid
+  taskId           String       @db.Uuid
+  completedById    String       @db.Uuid
+  completed        Boolean      @default(false)
+  unableToComplete Boolean      @default(false)
+  notes            String?
+  reason           String?
+  completedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  visit            CareVisit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  task             CarePlanTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completedBy      Membership   @relation(fields: [completedById], references: [id], onDelete: Restrict)
 
   @@unique([visitId, taskId])
   @@index([visitId])
@@ -604,31 +652,31 @@ model VisitTaskCompletion {
 }
 
 model Incident {
-  id               String           @id @default(uuid()) @db.Uuid
-  organisationId   String           @db.Uuid
+  id                String           @id @default(uuid()) @db.Uuid
+  organisationId    String           @db.Uuid
   incidentReference String
-  clientId         String?          @db.Uuid
-  visitId          String?          @db.Uuid
-  reportedById     String           @db.Uuid
-  reviewerId       String?          @db.Uuid
-  category         IncidentCategory
-  severity         IncidentSeverity @default(MEDIUM)
-  status           IncidentStatus   @default(OPEN)
-  occurredAt       DateTime
-  location         String?
-  description      String
-  immediateAction  String?
-  followUpRequired Boolean          @default(false)
-  followUpNotes    String?
-  resolutionNotes  String?
-  resolvedAt       DateTime?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  organisation     Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  client           Client?          @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: SetNull)
-  visit            CareVisit?       @relation(fields: [visitId], references: [id], onDelete: SetNull)
-  reportedBy       Membership       @relation("IncidentReporter", fields: [reportedById], references: [id], onDelete: Restrict)
-  reviewer         Membership?      @relation("IncidentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  clientId          String?          @db.Uuid
+  visitId           String?          @db.Uuid
+  reportedById      String           @db.Uuid
+  reviewerId        String?          @db.Uuid
+  category          IncidentCategory
+  severity          IncidentSeverity @default(MEDIUM)
+  status            IncidentStatus   @default(OPEN)
+  occurredAt        DateTime
+  location          String?
+  description       String
+  immediateAction   String?
+  followUpRequired  Boolean          @default(false)
+  followUpNotes     String?
+  resolutionNotes   String?
+  resolvedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  organisation      Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  client            Client?          @relation(fields: [clientId, organisationId], references: [id, organisationId], onDelete: SetNull)
+  visit             CareVisit?       @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  reportedBy        Membership       @relation("IncidentReporter", fields: [reportedById], references: [id], onDelete: Restrict)
+  reviewer          Membership?      @relation("IncidentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
 
   @@unique([incidentReference, organisationId])
   @@index([organisationId, status])
@@ -649,7 +697,7 @@ model StaffAvailability {
   id             String       @id @default(uuid()) @db.Uuid
   organisationId String       @db.Uuid
   staffProfileId String       @db.Uuid
-  dayOfWeek      Int          // 0=Sunday, 6=Saturday
+  dayOfWeek      Int // 0=Sunday, 6=Saturday
   startTime      DateTime     @db.Time
   endTime        DateTime     @db.Time
   isPreferred    Boolean      @default(false)
@@ -674,7 +722,7 @@ model StaffAbsence {
   status         AbsenceStatus @default(PENDING)
   startDate      DateTime      @db.Date
   endDate        DateTime      @db.Date
-  startTime      DateTime?     @db.Time  // For partial day absences
+  startTime      DateTime?     @db.Time // For partial day absences
   endTime        DateTime?     @db.Time
   isFullDay      Boolean       @default(true)
   reason         String?
@@ -757,4 +805,109 @@ model TravelTimeEstimate {
   @@unique([organisationId, fromPostcode, toPostcode])
   @@index([organisationId])
   @@map("travel_time_estimates")
+}
+
+// =============================================================================
+// Phase 5: Multi-Organisation and Multi-Branch Models
+// =============================================================================
+
+// Branch within an organisation
+model Branch {
+  id               String             @id @default(uuid()) @db.Uuid
+  organisationId   String             @db.Uuid
+  name             String
+  code             String // Unique within organisation
+  status           BranchStatus       @default(ACTIVE)
+  addressLine1     String?
+  addressLine2     String?
+  city             String?
+  postcode         String?
+  phone            String?
+  email            String?
+  serviceArea      String? // Geographic area served
+  // CQC location ID if branch is a registered CQC location
+  cqcLocationId    String?
+  isHeadOffice     Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  organisation     Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  staffAssignments BranchAssignment[]
+
+  @@unique([organisationId, code])
+  @@index([organisationId, status])
+  @@map("branches")
+}
+
+// Staff assignment to branches (many-to-many)
+model BranchAssignment {
+  id             String       @id @default(uuid()) @db.Uuid
+  branchId       String       @db.Uuid
+  staffProfileId String       @db.Uuid
+  organisationId String       @db.Uuid
+  isPrimary      Boolean      @default(false) // Primary branch for the staff member
+  role           String? // Optional role at this branch (e.g., "Branch Manager")
+  startDate      DateTime     @db.Date
+  endDate        DateTime?    @db.Date
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  staffProfile   StaffProfile @relation(fields: [staffProfileId, organisationId], references: [id, organisationId], onDelete: Cascade)
+
+  @@unique([branchId, staffProfileId])
+  @@index([organisationId, staffProfileId])
+  @@index([branchId])
+  @@map("branch_assignments")
+}
+
+// Platform-level organisation invitation (for onboarding new organisations)
+model OrganisationInvitation {
+  id                     String        @id @default(uuid()) @db.Uuid
+  // Organisation details to be created
+  organisationName       String
+  tradingName            String?
+  companyRegistrationNo  String?
+  contactEmail           String
+  contactPhone           String?
+  registeredAddressLine1 String?
+  registeredCity         String?
+  registeredPostcode     String?
+  // Initial administrator details
+  primaryAdminName       String
+  primaryAdminEmail      String
+  // Token and status
+  tokenHash              String        @unique
+  expiresAt              DateTime
+  acceptedAt             DateTime?
+  // Reference to created organisation once accepted
+  organisationId         String?       @db.Uuid
+  organisation           Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  // Audit
+  invitedByUserId        String        @db.Uuid
+  invitedBy              User          @relation(fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  createdAt              DateTime      @default(now())
+
+  @@index([contactEmail])
+  @@index([primaryAdminEmail])
+  @@index([expiresAt])
+  @@map("organisation_invitations")
+}
+
+// Platform-level audit log (for cross-organisation actions by platform admins)
+model PlatformAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @db.Uuid
+  action      String // e.g., "organisation.created", "organisation.suspended"
+  entityType  String // e.g., "Organisation"
+  entityId    String?
+  targetOrgId String?  @db.Uuid // The organisation being acted upon
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetOrgId, createdAt])
+  @@index([action, createdAt])
+  @@map("platform_audit_logs")
 }

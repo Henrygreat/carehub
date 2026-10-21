@@ -18,6 +18,7 @@ const navItems = [
   { href: "/staff", label: "Staff directory", icon: UsersRound },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings/organisation", label: "Organisation", icon: Building2 },
+  { href: "/settings/branches", label: "Branches", icon: Building2 },
   { href: "/settings/users", label: "Users & access", icon: Settings2 },
 ];
 
@@ -91,6 +92,9 @@ function Navigation({ mobile = false, role }: { mobile?: boolean; role: Role }) 
           if (href === "/notifications") return hasPermission(role, "notifications:read");
           if (href === "/settings/organisation") {
             return hasPermission(role, "organisation:update");
+          }
+          if (href === "/settings/branches") {
+            return hasPermission(role, "branches:read");
           }
           if (href === "/settings/users") return role === "ORG_ADMIN";
           return true;

@@ -354,3 +354,84 @@ export const visitRescheduleSchema = z.object({
 export const notificationReadSchema = z.object({
   notificationIds: z.array(z.string().uuid()),
 });
+
+// =============================================================================
+// Phase 5: Multi-Organisation and Multi-Branch Schemas
+// =============================================================================
+
+// Extended organisation schema (for platform admin updates)
+export const organisationExtendedSchema = z.object({
+  name: z.string().trim().min(2).max(120).regex(/^[^\r\n]+$/),
+  brandName: z.string().trim().max(120).nullable().optional(),
+  brandColour: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  tradingName: z.string().trim().max(120).nullable().optional(),
+  companyRegistrationNo: z.string().trim().max(20).nullable().optional(),
+  contactEmail: z.string().email().max(254).nullable().optional(),
+  contactPhone: z.string().trim().max(32).nullable().optional(),
+  registeredAddressLine1: z.string().trim().max(200).nullable().optional(),
+  registeredAddressLine2: z.string().trim().max(200).nullable().optional(),
+  registeredCity: z.string().trim().max(100).nullable().optional(),
+  registeredPostcode: z.string().trim().max(20).nullable().optional(),
+  registeredCountry: z.string().trim().max(100).nullable().optional(),
+  operatingAddressLine1: z.string().trim().max(200).nullable().optional(),
+  operatingAddressLine2: z.string().trim().max(200).nullable().optional(),
+  operatingCity: z.string().trim().max(100).nullable().optional(),
+  operatingPostcode: z.string().trim().max(20).nullable().optional(),
+  operatingCountry: z.string().trim().max(100).nullable().optional(),
+  cqcProviderId: z.string().trim().max(32).nullable().optional(),
+  cqcProviderName: z.string().trim().max(200).nullable().optional(),
+  cqcRegisteredManager: z.string().trim().max(120).nullable().optional(),
+  timezone: z.string().trim().max(64).default("Europe/London"),
+});
+
+// Organisation invitation schema (platform admin inviting new organisation)
+export const organisationInvitationSchema = z.object({
+  organisationName: z.string().trim().min(2).max(120),
+  tradingName: z.string().trim().max(120).nullable().optional(),
+  companyRegistrationNo: z.string().trim().max(20).nullable().optional(),
+  contactEmail: z.string().email().max(254),
+  contactPhone: z.string().trim().max(32).nullable().optional(),
+  registeredAddressLine1: z.string().trim().max(200).nullable().optional(),
+  registeredCity: z.string().trim().max(100).nullable().optional(),
+  registeredPostcode: z.string().trim().max(20).nullable().optional(),
+  primaryAdminName: z.string().trim().min(2).max(120),
+  primaryAdminEmail: z.string().email().max(254),
+});
+
+// Accept organisation invitation schema
+export const acceptOrganisationInvitationSchema = z.object({
+  token: z.string().min(32).max(128),
+  password: z.string().min(12).max(128),
+});
+
+// Branch schema
+export const branchSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  code: z.string().trim().min(1).max(20).regex(/^[A-Z0-9-]+$/, "Code must be uppercase letters, numbers, and hyphens only"),
+  addressLine1: z.string().trim().max(200).nullable().optional(),
+  addressLine2: z.string().trim().max(200).nullable().optional(),
+  city: z.string().trim().max(100).nullable().optional(),
+  postcode: z.string().trim().max(20).nullable().optional(),
+  phone: z.string().trim().max(32).nullable().optional(),
+  email: z.string().email().max(254).nullable().optional(),
+  serviceArea: z.string().trim().max(200).nullable().optional(),
+  cqcLocationId: z.string().trim().max(32).nullable().optional(),
+  isHeadOffice: z.boolean().default(false),
+});
+
+// Branch update schema (code cannot be changed after creation)
+export const branchUpdateSchema = branchSchema.omit({ code: true });
+
+// Branch assignment schema
+export const branchAssignmentSchema = z.object({
+  staffProfileId: z.string().uuid(),
+  isPrimary: z.boolean().default(false),
+  role: z.string().trim().max(100).nullable().optional(),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date().nullable().optional(),
+});
+
+// Batch branch assignment schema
+export const batchBranchAssignmentSchema = z.object({
+  assignments: z.array(branchAssignmentSchema),
+});

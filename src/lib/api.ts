@@ -3,7 +3,8 @@ import {
   AuthenticationRequiredError,
   TenantAccessError,
 } from "@/lib/tenant";
-import { PermissionDeniedError } from "@/lib/permissions";
+import { PermissionDeniedError, PlatformAccessDeniedError } from "@/lib/permissions";
+import { AuthenticationRequiredError as PlatformAuthError } from "@/lib/platform-admin";
 import { RateLimitError } from "@/lib/rate-limit";
 import { requireAppUrl } from "@/lib/environment";
 
@@ -17,10 +18,14 @@ export function jsonError(error: unknown) {
   if (error instanceof SyntaxError) {
     return NextResponse.json({ error: "Invalid JSON request." }, { status: 400 });
   }
-  if (error instanceof AuthenticationRequiredError) {
+  if (error instanceof AuthenticationRequiredError || error instanceof PlatformAuthError) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
-  if (error instanceof TenantAccessError || error instanceof PermissionDeniedError) {
+  if (
+    error instanceof TenantAccessError ||
+    error instanceof PermissionDeniedError ||
+    error instanceof PlatformAccessDeniedError
+  ) {
     return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
   if (error instanceof RateLimitError) {

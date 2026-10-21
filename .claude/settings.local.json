@@ -19,7 +19,11 @@
       "Bash(npm run build:*)",
       "Bash(npm run test)",
       "Bash(npm test:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(npx prisma format:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(cd:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

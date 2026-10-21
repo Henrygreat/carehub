@@ -54,10 +54,36 @@ export type Permission =
   | "rota:manage"
   | "scheduling:override"
   // Phase 4: Notification permissions
-  | "notifications:read";
+  | "notifications:read"
+  // Phase 5: Branch permissions
+  | "branches:read"
+  | "branches:create"
+  | "branches:update"
+  | "branches:deactivate"
+  | "branches:assign_staff";
+
+// Phase 5: Platform-level permissions (separate from organisation permissions)
+export type PlatformPermission =
+  | "platform:organisations:read"
+  | "platform:organisations:create"
+  | "platform:organisations:update"
+  | "platform:organisations:suspend"
+  | "platform:organisations:reactivate"
+  | "platform:organisations:invite"
+  | "platform:audit:read";
 
 const grants: Record<Role, readonly Permission[]> = {
-  PLATFORM_ADMIN: ["organisation:read", "organisation:update"],
+  PLATFORM_ADMIN: [
+    "organisation:read",
+    "organisation:update",
+    "staff:read",
+    "clients:read",
+    "visits:read",
+    "shifts:read",
+    "carePlans:read",
+    "incidents:read",
+    "branches:read",
+  ],
   ORG_ADMIN: [
     "organisation:read",
     "organisation:update",
@@ -104,6 +130,12 @@ const grants: Record<Role, readonly Permission[]> = {
     "rota:manage",
     "scheduling:override",
     "notifications:read",
+    // Phase 5: Branch management
+    "branches:read",
+    "branches:create",
+    "branches:update",
+    "branches:deactivate",
+    "branches:assign_staff",
   ],
   MANAGER: [
     "organisation:read",
@@ -147,6 +179,8 @@ const grants: Record<Role, readonly Permission[]> = {
     "rota:manage",
     "scheduling:override",
     "notifications:read",
+    // Phase 5: Branch read
+    "branches:read",
   ],
   COORDINATOR: [
     "organisation:read",
@@ -322,4 +356,52 @@ export class PermissionDeniedError extends Error {
     super("You do not have permission to perform this action.");
     this.name = "PermissionDeniedError";
   }
+}
+
+// =============================================================================
+// Phase 5: Platform Admin Permission Functions
+// =============================================================================
+
+// All platform permissions granted to platform admins
+const platformAdminPermissions: readonly PlatformPermission[] = [
+  "platform:organisations:read",
+  "platform:organisations:create",
+  "platform:organisations:update",
+  "platform:organisations:suspend",
+  "platform:organisations:reactivate",
+  "platform:organisations:invite",
+  "platform:audit:read",
+];
+
+export function hasPlatformPermission(
+  user: { isPlatformAdmin: boolean },
+  permission: PlatformPermission,
+): boolean {
+  if (!user.isPlatformAdmin) return false;
+  return platformAdminPermissions.includes(permission);
+}
+
+export function assertPlatformPermission(
+  user: { isPlatformAdmin: boolean },
+  permission: PlatformPermission,
+): void {
+  if (!hasPlatformPermission(user, permission)) {
+    throw new PermissionDeniedError();
+  }
+}
+
+export class PlatformAccessDeniedError extends Error {
+  constructor() {
+    super("Platform admin access required.");
+    this.name = "PlatformAccessDeniedError";
+  }
+}
+
+// Phase 5: Branch access control
+export function canAccessBranch(
+  context: { role: Role; organisationId: string },
+  branch: { organisationId: string },
+): boolean {
+  if (branch.organisationId !== context.organisationId) return false;
+  return hasPermission(context.role, "branches:read");
 }
