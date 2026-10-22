@@ -151,7 +151,7 @@ export function OnboardingWizard({
     <div className="mx-auto max-w-4xl space-y-8">
       {/* Header */}
       <section className="text-center">
-        <div className="mx-auto mb-4 grid size-16 place-items-center rounded-2xl bg-teal-100 text-teal-700">
+        <div className="mx-auto mb-4 grid size-16 place-items-center rounded-2xl bg-[#237E78]/10 text-[#237E78]">
           <Rocket size={32} />
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -172,12 +172,12 @@ export function OnboardingWizard({
             </p>
           </div>
           <div className="text-right">
-            <span className="text-2xl font-bold text-teal-700">{progressPercent}%</span>
+            <span className="text-2xl font-bold text-[#237E78]">{progressPercent}%</span>
           </div>
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
           <div
-            className="h-full rounded-full bg-teal-600 transition-all duration-500"
+            className="h-full rounded-full bg-[#237E78] transition-all duration-500"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -203,14 +203,14 @@ export function OnboardingWizard({
                 key={step.id}
                 className={`rounded-2xl border p-6 transition ${
                   canActivate
-                    ? "border-teal-200 bg-teal-50"
+                    ? "border-[#237E78]/20 bg-[#237E78]/5"
                     : "border-slate-200 bg-white"
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div
                     className={`grid size-12 shrink-0 place-items-center rounded-xl ${
-                      canActivate ? "bg-teal-200 text-teal-700" : "bg-slate-100 text-slate-400"
+                      canActivate ? "bg-[#237E78]/20 text-[#237E78]" : "bg-slate-100 text-slate-400"
                     }`}
                   >
                     <Icon size={24} />
@@ -255,7 +255,7 @@ export function OnboardingWizard({
                     <button
                       onClick={handleActivate}
                       disabled={!canActivate || activating}
-                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-teal-700 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#237E78] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a5f5a] disabled:opacity-50"
                     >
                       {activating ? (
                         <>
@@ -279,11 +279,11 @@ export function OnboardingWizard({
             <Link
               key={step.id}
               href={step.href!}
-              className={`flex items-center gap-4 rounded-2xl border p-6 transition hover:border-teal-200 hover:bg-teal-50/50 ${
+              className={`flex items-center gap-4 rounded-2xl border p-6 transition hover:border-[#237E78]/20 hover:bg-[#237E78]/5 ${
                 isCompleted
                   ? "border-emerald-200 bg-emerald-50/50"
                   : isCurrent
-                    ? "border-teal-200 bg-white"
+                    ? "border-[#237E78]/20 bg-white"
                     : "border-slate-200 bg-white"
               }`}
             >
@@ -292,7 +292,7 @@ export function OnboardingWizard({
                   isCompleted
                     ? "bg-emerald-100 text-emerald-600"
                     : isCurrent
-                      ? "bg-teal-100 text-teal-700"
+                      ? "bg-[#237E78]/10 text-[#237E78]"
                       : "bg-slate-100 text-slate-400"
                 }`}
               >

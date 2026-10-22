@@ -7,10 +7,12 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  Menu,
   Shield,
 } from "lucide-react";
 import { auth, signOut } from "@/auth";
 import { db } from "@/lib/db";
+import { brand } from "@/lib/brand";
 
 const navItems = [
   { href: "/platform-admin", label: "Dashboard", icon: LayoutDashboard },
@@ -38,38 +40,49 @@ export default async function PlatformAdminLayout({
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="hidden w-64 shrink-0 flex-col bg-slate-900 px-5 py-6 text-white md:flex">
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col bg-[#182F42] px-5 py-6 text-white md:flex">
         <Link href="/platform-admin" className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-amber-500 text-base font-bold text-slate-900">
+          <span className="grid size-9 place-items-center rounded-xl bg-[#E3AD63] text-[#182F42] shadow-sm">
             <Shield size={18} />
           </span>
           <span className="text-[15px] font-semibold tracking-tight">Platform Admin</span>
         </Link>
-        <div className="mt-10 rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+
+        {/* Mode Indicator */}
+        <div className="mt-8 rounded-xl border border-[#E3AD63]/30 bg-[#E3AD63]/10 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#E3AD63]">
             Mode
           </p>
-          <p className="mt-1 truncate text-sm font-medium">Platform Administration</p>
+          <p className="mt-1.5 truncate text-sm font-medium">Platform Administration</p>
         </div>
-        <nav className="mt-8 space-y-1">
+
+        {/* Navigation */}
+        <nav className="mt-6 space-y-0.5">
           {navItems.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
             >
-              <Icon size={18} aria-hidden="true" /> {label}
+              <Icon size={18} aria-hidden="true" />
+              {label}
             </Link>
           ))}
         </nav>
+
+        {/* Exit to Organisation */}
         <div className="mt-8 border-t border-white/10 pt-4">
           <Link
             href="/dashboard"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
           >
-            <Building2 size={18} aria-hidden="true" /> Exit to Organisation
+            <Building2 size={18} aria-hidden="true" />
+            Exit to Organisation
           </Link>
         </div>
+
+        {/* User Profile */}
         <div className="mt-auto border-t border-white/10 pt-4">
           <p className="truncate text-sm font-medium">{user.name}</p>
           <p className="mt-0.5 truncate text-xs text-slate-400">{user.email}</p>
@@ -79,51 +92,62 @@ export default async function PlatformAdminLayout({
               await signOut({ redirectTo: "/login" });
             }}
           >
-            <button className="mt-4 flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
-              <LogOut size={16} aria-hidden="true" /> Sign out
+            <button className="mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/10 hover:text-white">
+              <LogOut size={16} aria-hidden="true" />
+              Sign out
             </button>
           </form>
         </div>
       </aside>
+
+      {/* Main Content */}
       <div className="min-w-0 flex-1">
+        {/* Mobile Header */}
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-5 md:hidden">
           <Link href="/platform-admin" className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-xl bg-amber-500 text-base font-bold text-slate-900">
+            <span className="grid size-9 place-items-center rounded-xl bg-[#E3AD63] text-[#182F42] shadow-sm">
               <Shield size={18} />
             </span>
-            <span className="text-[15px] font-semibold tracking-tight text-slate-900">
+            <span className="text-[15px] font-semibold tracking-tight text-[#182F42]">
               Platform Admin
             </span>
           </Link>
           <details className="relative">
-            <summary className="cursor-pointer list-none rounded-lg p-2 text-sm font-medium text-slate-700">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <Menu size={18} />
               Menu
             </summary>
-            <div className="absolute right-0 top-11 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
-              <nav className="space-y-1">
+            <div className="absolute right-0 top-12 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+              <nav className="space-y-0.5">
                 {navItems.map(({ href, label, icon: Icon }) => (
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-[#237E78]"
                   >
-                    <Icon size={18} aria-hidden="true" /> {label}
+                    <Icon size={18} aria-hidden="true" />
+                    {label}
                   </Link>
                 ))}
               </nav>
-              <form
-                action={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/login" });
-                }}
-              >
-                <button className="mt-4 flex items-center gap-2 text-sm text-slate-700 hover:text-slate-900">
-                  <LogOut size={16} aria-hidden="true" /> Sign out
-                </button>
-              </form>
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <form
+                  action={async () => {
+                    "use server";
+                    await signOut({ redirectTo: "/login" });
+                  }}
+                >
+                  <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+                    <LogOut size={16} aria-hidden="true" />
+                    Sign out
+                  </button>
+                </form>
+              </div>
             </div>
           </details>
         </header>
+
+        {/* Page Content */}
         <main className="mx-auto w-full max-w-7xl px-5 py-8 md:px-10 md:py-10">
           {children}
         </main>

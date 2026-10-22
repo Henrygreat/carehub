@@ -109,7 +109,7 @@ export default async function PlatformAdminDashboardPage() {
   return (
     <div className="space-y-8">
       <section>
-        <p className="text-sm font-medium text-amber-600">Platform Administration</p>
+        <p className="text-sm font-medium text-[#E3AD63]">Platform Administration</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
           Platform Overview
         </h1>

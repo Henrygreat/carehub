@@ -251,13 +251,13 @@ export function ApplicationForm() {
           {careServiceOptions.map((service) => (
             <label
               key={service}
-              className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-3 transition hover:border-teal-300 hover:bg-teal-50"
+              className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-3 transition hover:border-[#237E78]/30 hover:bg-[#237E78]/5"
             >
               <input
                 type="checkbox"
                 checked={formData.careServiceTypes.includes(service)}
                 onChange={() => toggleService(service)}
-                className="size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                className="size-4 rounded border-slate-300 text-[#237E78] focus:ring-[#237E78]"
               />
               <span className="text-sm text-slate-700">{service}</span>
             </label>
@@ -306,7 +306,7 @@ export function ApplicationForm() {
             checked={formData.privacyNoticeAccepted}
             onChange={(e) => updateField("privacyNoticeAccepted", e.target.checked)}
             required
-            className="mt-0.5 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+            className="mt-0.5 size-4 rounded border-slate-300 text-[#237E78] focus:ring-[#237E78]"
           />
           <span className="text-sm text-slate-600">
             I have read and agree to the{" "}
@@ -322,7 +322,7 @@ export function ApplicationForm() {
             checked={formData.termsAccepted}
             onChange={(e) => updateField("termsAccepted", e.target.checked)}
             required
-            className="mt-0.5 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+            className="mt-0.5 size-4 rounded border-slate-300 text-[#237E78] focus:ring-[#237E78]"
           />
           <span className="text-sm text-slate-600">
             I agree to the{" "}
@@ -346,7 +346,7 @@ export function ApplicationForm() {
         <button
           type="submit"
           disabled={busy || formData.careServiceTypes.length === 0}
-          className="h-11 rounded-lg bg-teal-700 px-8 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+          className="h-11 rounded-lg bg-[#237E78] px-8 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1a5f5a] disabled:opacity-50"
         >
           {busy ? (
             <span className="flex items-center gap-2">
@@ -396,7 +396,7 @@ function Field({
         maxLength={maxLength}
         min={min}
         max={max}
-        className="mt-1.5 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+        className="mt-1.5 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-[#237E78] focus:ring-2 focus:ring-[#237E78]/20"
       />
     </label>
   );
