@@ -12,6 +12,13 @@ type PasswordResetTemplateInput = {
   expiresAt: Date;
 };
 
+type OrganisationInvitationTemplateInput = {
+  organisationName: string;
+  adminName: string;
+  acceptUrl: string;
+  expiresAt: Date;
+};
+
 const navy = "#102b3a";
 const teal = "#0f766e";
 const muted = "#52616d";
@@ -66,6 +73,41 @@ export function renderPasswordResetEmail(input: PasswordResetTemplateInput): Tem
       "",
       `This single-use link expires ${expiry}.`,
       "If you did not request a password reset, no action is needed.",
+    ].join("\n"),
+  };
+}
+
+export function renderOrganisationInvitationEmail(input: OrganisationInvitationTemplateInput): TemplateResult {
+  const organisation = safeText(input.organisationName);
+  const adminName = safeText(input.adminName);
+  const acceptUrl = safeUrl(input.acceptUrl);
+  const expiry = formatExpiry(input.expiresAt);
+
+  return {
+    subject: `Welcome to FalconCare Hub - Set up ${organisation}`,
+    html: emailLayout({
+      preheader: `Your organisation ${organisation} has been approved. Set up your account to get started.`,
+      title: "Welcome to FalconCare Hub",
+      body: `<p>Hello ${escapeHtml(adminName)},</p>
+        <p>Great news! Your organisation <strong>${escapeHtml(organisation)}</strong> has been approved to join FalconCare Hub.</p>
+        <p>As the primary administrator, you can now set up your account and start configuring your care management workspace.</p>
+        <p>Use the secure link below to create your password and begin the setup process. This invitation expires ${escapeHtml(expiry)}.</p>`,
+      buttonLabel: "Set up your organisation",
+      buttonUrl: acceptUrl,
+      footerNote: "If you did not apply to join FalconCare Hub, please contact our support team immediately.",
+    }),
+    text: [
+      `Hello ${adminName},`,
+      "",
+      `Great news! Your organisation ${organisation} has been approved to join FalconCare Hub.`,
+      "",
+      "As the primary administrator, you can now set up your account and start configuring your care management workspace.",
+      "",
+      `Set up your organisation: ${acceptUrl}`,
+      "",
+      `This single-use link expires ${expiry}.`,
+      "",
+      "If you did not apply to join FalconCare Hub, please contact our support team immediately.",
     ].join("\n"),
   };
 }

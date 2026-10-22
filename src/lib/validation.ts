@@ -435,3 +435,87 @@ export const branchAssignmentSchema = z.object({
 export const batchBranchAssignmentSchema = z.object({
   assignments: z.array(branchAssignmentSchema),
 });
+
+// =============================================================================
+// Phase 6: Hybrid Onboarding Schemas
+// =============================================================================
+
+// Care service types for UK domiciliary care
+export const careServiceTypes = [
+  "Personal care",
+  "Medication support",
+  "Companionship",
+  "Domestic support",
+  "Live-in care",
+  "Complex care",
+  "Dementia care",
+  "End of life care",
+  "Learning disability support",
+  "Mental health support",
+  "Physical disability support",
+  "Reablement",
+  "Respite care",
+] as const;
+
+// Public organisation application schema
+export const organisationApplicationSchema = z.object({
+  // Company details
+  companyName: z.string().trim().min(2).max(200),
+  tradingName: z.string().trim().max(200).nullable().optional(),
+  companyRegistrationNo: z.string().trim().max(20).nullable().optional(),
+  registeredAddressLine1: z.string().trim().max(200).nullable().optional(),
+  registeredAddressLine2: z.string().trim().max(200).nullable().optional(),
+  registeredCity: z.string().trim().max(100).nullable().optional(),
+  registeredPostcode: z.string().trim().max(20).nullable().optional(),
+  // Primary contact
+  primaryContactName: z.string().trim().min(2).max(120),
+  primaryContactEmail: z.string().email().max(254).transform((e) => e.toLowerCase()),
+  primaryContactPhone: z.string().trim().max(32).nullable().optional(),
+  // Care services
+  careServiceTypes: z.array(z.string().max(100)).min(1).max(15),
+  cqcRegistrationNo: z.string().trim().max(32).nullable().optional(),
+  estimatedStaffCount: z.coerce.number().int().min(1).max(10000).nullable().optional(),
+  estimatedBranchCount: z.coerce.number().int().min(1).max(500).nullable().optional(),
+  // Consent (required for submission)
+  privacyNoticeAccepted: z.boolean(),
+  termsAccepted: z.boolean(),
+});
+
+// Application submission schema (consent required)
+export const submitApplicationSchema = organisationApplicationSchema.refine(
+  (data) => data.privacyNoticeAccepted && data.termsAccepted,
+  { message: "You must accept the privacy notice and terms to submit your application." }
+);
+
+// Platform admin application review schema
+export const applicationReviewSchema = z.object({
+  status: z.enum(["UNDER_REVIEW", "APPROVED", "REJECTED"]),
+  reviewNotes: z.string().max(2000).nullable().optional(),
+  rejectionReason: z.string().max(1000).nullable().optional(),
+});
+
+// Onboarding progress update schema
+export const onboardingProgressSchema = z.object({
+  currentStep: z.number().int().min(0).max(4),
+  profileCompleted: z.boolean().optional(),
+  branchesCompleted: z.boolean().optional(),
+  servicesCompleted: z.boolean().optional(),
+  teamCompleted: z.boolean().optional(),
+  reviewCompleted: z.boolean().optional(),
+});
+
+// Organisation profile update schema (onboarding step 1)
+export const onboardingProfileSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  tradingName: z.string().trim().max(120).nullable().optional(),
+  companyRegistrationNo: z.string().trim().max(20).nullable().optional(),
+  contactEmail: z.string().email().max(254).nullable().optional(),
+  contactPhone: z.string().trim().max(32).nullable().optional(),
+  registeredAddressLine1: z.string().trim().max(200).nullable().optional(),
+  registeredAddressLine2: z.string().trim().max(200).nullable().optional(),
+  registeredCity: z.string().trim().max(100).nullable().optional(),
+  registeredPostcode: z.string().trim().max(20).nullable().optional(),
+  cqcProviderId: z.string().trim().max(32).nullable().optional(),
+  cqcProviderName: z.string().trim().max(200).nullable().optional(),
+  cqcRegisteredManager: z.string().trim().max(120).nullable().optional(),
+});

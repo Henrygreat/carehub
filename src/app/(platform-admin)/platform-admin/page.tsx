@@ -1,7 +1,14 @@
 import Link from "next/link";
-import { ArrowUpRight, Building2, Clock, Mail, PauseCircle, Users } from "lucide-react";
+import { ArrowUpRight, Building2, ClipboardList, Clock, Mail, PauseCircle, Rocket, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { resolvePlatformAdminContext } from "@/lib/platform-admin";
+
+type AuditLogEntry = {
+  id: string;
+  action: string;
+  createdAt: Date;
+  actor: { name: string | null } | null;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +24,8 @@ export default async function PlatformAdminDashboardPage() {
     activeOrganisations,
     suspendedOrganisations,
     pendingInvitations,
+    pendingApplications,
+    onboardingInProgress,
     totalUsers,
     recentAuditLogs,
     newOrganisationsLast30Days,
@@ -26,6 +35,12 @@ export default async function PlatformAdminDashboardPage() {
     db.organisation.count({ where: { status: "SUSPENDED" } }),
     db.organisationInvitation.count({
       where: { acceptedAt: null, expiresAt: { gt: now } },
+    }),
+    db.organisationApplication.count({
+      where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
+    }),
+    db.organisationOnboarding.count({
+      where: { status: { in: ["INVITED", "IN_PROGRESS"] } },
     }),
     db.user.count({ where: { disabledAt: null } }),
     db.platformAuditLog.findMany({
@@ -45,11 +60,12 @@ export default async function PlatformAdminDashboardPage() {
 
   const metrics = [
     {
-      label: "Total organisations",
-      value: totalOrganisations,
-      icon: Building2,
-      note: "Registered on the platform",
-      href: "/platform-admin/organisations",
+      label: "Pending applications",
+      value: pendingApplications,
+      icon: ClipboardList,
+      note: "Awaiting review",
+      color: pendingApplications > 0 ? "amber" : "teal",
+      href: "/platform-admin/applications?status=SUBMITTED",
     },
     {
       label: "Active organisations",
@@ -58,6 +74,14 @@ export default async function PlatformAdminDashboardPage() {
       note: "Currently operational",
       color: "emerald",
       href: "/platform-admin/organisations?status=ACTIVE",
+    },
+    {
+      label: "Onboarding",
+      value: onboardingInProgress,
+      icon: Rocket,
+      note: "Setting up their workspace",
+      color: "teal",
+      href: "/platform-admin/organisations?status=PENDING",
     },
     {
       label: "Suspended",
@@ -79,13 +103,6 @@ export default async function PlatformAdminDashboardPage() {
       value: totalUsers,
       icon: Users,
       note: "Across all organisations",
-    },
-    {
-      label: "New (30 days)",
-      value: newOrganisationsLast30Days,
-      icon: Clock,
-      note: "Organisations added recently",
-      color: "teal",
     },
   ];
 
@@ -152,7 +169,7 @@ export default async function PlatformAdminDashboardPage() {
             <p className="mt-4 text-sm text-slate-500">No recent activity.</p>
           ) : (
             <ul className="mt-4 divide-y divide-slate-100">
-              {recentAuditLogs.map((log) => (
+              {recentAuditLogs.map((log: AuditLogEntry) => (
                 <li key={log.id} className="flex items-start justify-between py-3">
                   <div>
                     <p className="text-sm font-medium text-slate-800">{log.action}</p>
@@ -175,6 +192,16 @@ export default async function PlatformAdminDashboardPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold text-slate-900">Quick Actions</h2>
           <div className="mt-4 space-y-3">
+            <Link
+              href="/platform-admin/applications"
+              className="flex items-center justify-between rounded-lg border border-slate-200 p-4 transition hover:border-amber-200 hover:bg-amber-50"
+            >
+              <div className="flex items-center gap-3">
+                <ClipboardList size={20} className="text-slate-600" />
+                <span className="font-medium text-slate-800">Review applications</span>
+              </div>
+              <ArrowUpRight size={16} className="text-slate-400" />
+            </Link>
             <Link
               href="/platform-admin/organisations"
               className="flex items-center justify-between rounded-lg border border-slate-200 p-4 transition hover:border-amber-200 hover:bg-amber-50"

@@ -59,17 +59,17 @@ export function OrganisationInvitationAcceptForm({ token }: Props) {
         </div>
         <div>
           <h2 className="text-xl font-semibold text-slate-900">
-            Organisation created successfully!
+            Welcome to FalconCare Hub!
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            Your organisation and administrator account have been set up. You can now sign in.
+            Your account has been created. Sign in to complete your organisation setup.
           </p>
         </div>
         <Link
           href="/login"
           className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white transition hover:bg-teal-800"
         >
-          Sign in to your account
+          Sign in and complete setup
         </Link>
       </div>
     );

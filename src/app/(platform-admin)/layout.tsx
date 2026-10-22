@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   Building2,
+  ClipboardList,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -13,6 +14,7 @@ import { db } from "@/lib/db";
 
 const navItems = [
   { href: "/platform-admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/platform-admin/applications", label: "Applications", icon: ClipboardList },
   { href: "/platform-admin/organisations", label: "Organisations", icon: Building2 },
   { href: "/platform-admin/invitations", label: "Invitations", icon: Mail },
   { href: "/platform-admin/audit-logs", label: "Audit logs", icon: FileText },

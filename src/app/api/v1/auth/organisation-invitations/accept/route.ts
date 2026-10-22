@@ -74,38 +74,60 @@ export async function POST(request: Request) {
         throw new InvitationUnavailableError();
       }
 
-      // Create the organisation
-      const organisation = await tx.organisation.create({
-        data: {
-          name: invitation.organisationName,
-          slug,
-          status: "ACTIVE",
-          tradingName: invitation.tradingName,
-          companyRegistrationNo: invitation.companyRegistrationNo,
-          contactEmail: invitation.contactEmail,
-          contactPhone: invitation.contactPhone,
-          registeredAddressLine1: invitation.registeredAddressLine1,
-          registeredCity: invitation.registeredCity,
-          registeredPostcode: invitation.registeredPostcode,
-        },
-      });
+      let organisation;
 
-      // Update invitation with organisation reference
-      await tx.organisationInvitation.update({
-        where: { id: invitation.id },
-        data: { organisationId: organisation.id },
-      });
+      // Check if organisation was pre-provisioned (from application approval)
+      if (invitation.organisationId) {
+        organisation = await tx.organisation.findUnique({
+          where: { id: invitation.organisationId },
+        });
 
-      // Create default head office branch
-      await tx.branch.create({
-        data: {
-          organisationId: organisation.id,
-          name: "Head Office",
-          code: "HQ",
-          status: "ACTIVE",
-          isHeadOffice: true,
-        },
-      });
+        if (!organisation) {
+          throw new Error("Pre-provisioned organisation not found.");
+        }
+      } else {
+        // Create the organisation (legacy direct invitation flow)
+        organisation = await tx.organisation.create({
+          data: {
+            name: invitation.organisationName,
+            slug,
+            status: "PENDING", // Start as PENDING, activate after onboarding
+            tradingName: invitation.tradingName,
+            companyRegistrationNo: invitation.companyRegistrationNo,
+            contactEmail: invitation.contactEmail,
+            contactPhone: invitation.contactPhone,
+            registeredAddressLine1: invitation.registeredAddressLine1,
+            registeredCity: invitation.registeredCity,
+            registeredPostcode: invitation.registeredPostcode,
+          },
+        });
+
+        // Update invitation with organisation reference
+        await tx.organisationInvitation.update({
+          where: { id: invitation.id },
+          data: { organisationId: organisation.id },
+        });
+
+        // Create default head office branch
+        await tx.branch.create({
+          data: {
+            organisationId: organisation.id,
+            name: "Head Office",
+            code: "HQ",
+            status: "ACTIVE",
+            isHeadOffice: true,
+          },
+        });
+
+        // Create onboarding record for new organisations
+        await tx.organisationOnboarding.create({
+          data: {
+            organisationId: organisation.id,
+            status: "IN_PROGRESS",
+            currentStep: 0,
+          },
+        });
+      }
 
       // Create the admin user
       const user = await tx.user.create({
@@ -127,12 +149,18 @@ export async function POST(request: Request) {
         },
       });
 
+      // Update onboarding status if exists
+      await tx.organisationOnboarding.updateMany({
+        where: { organisationId: organisation.id },
+        data: { status: "IN_PROGRESS" },
+      });
+
       // Create audit log
       await tx.auditLog.create({
         data: {
           organisationId: organisation.id,
           actorUserId: user.id,
-          action: "organisation.created",
+          action: "organisation.admin.joined",
           entityType: "Organisation",
           entityId: organisation.id,
           metadata: {

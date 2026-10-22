@@ -28,6 +28,25 @@ enum BranchStatus {
   INACTIVE
 }
 
+// Phase 6: Hybrid Onboarding Enums
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum OnboardingStatus {
+  INVITED
+  IN_PROGRESS
+  READY_FOR_ACTIVATION
+  ACTIVE
+  BLOCKED
+}
+
 enum EmploymentStatus {
   ACTIVE
   ON_LEAVE
@@ -209,6 +228,9 @@ model Organisation {
   // Phase 5: Branches
   branches                Branch[]
   organisationInvitations OrganisationInvitation[]
+  // Phase 6: Onboarding
+  applications            OrganisationApplication[]
+  onboarding              OrganisationOnboarding?
 
   @@map("organisations")
 }
@@ -231,6 +253,8 @@ model User {
   // Phase 5: Platform admin relations
   organisationInvitations OrganisationInvitation[]
   platformAuditLogs       PlatformAuditLog[]
+  // Phase 6: Application reviews
+  reviewedApplications    OrganisationApplication[]
 
   @@map("users")
 }
@@ -910,4 +934,77 @@ model PlatformAuditLog {
   @@index([targetOrgId, createdAt])
   @@index([action, createdAt])
   @@map("platform_audit_logs")
+}
+
+// =============================================================================
+// Phase 6: Hybrid Onboarding Models
+// =============================================================================
+
+// Public organisation applications (care companies applying to join platform)
+model OrganisationApplication {
+  id                     String            @id @default(uuid()) @db.Uuid
+  // Company details
+  companyName            String
+  tradingName            String?
+  companyRegistrationNo  String?
+  registeredAddressLine1 String?
+  registeredAddressLine2 String?
+  registeredCity         String?
+  registeredPostcode     String?
+  // Primary contact
+  primaryContactName     String
+  primaryContactEmail    String
+  primaryContactPhone    String?
+  // Care services
+  careServiceTypes       String[]          @default([])
+  cqcRegistrationNo      String?
+  estimatedStaffCount    Int?
+  estimatedBranchCount   Int?
+  // Application status workflow
+  status                 ApplicationStatus @default(DRAFT)
+  submittedAt            DateTime?
+  // Review
+  reviewedAt             DateTime?
+  reviewedByUserId       String?           @db.Uuid
+  reviewedBy             User?             @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewNotes            String?
+  rejectionReason        String?
+  // Provisioning (links to created organisation after approval)
+  organisationId         String?           @db.Uuid
+  organisation           Organisation?     @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  invitationId           String?           @db.Uuid
+  // Consent
+  privacyNoticeAccepted  Boolean           @default(false)
+  termsAccepted          Boolean           @default(false)
+  // Timestamps
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@index([status, submittedAt])
+  @@index([primaryContactEmail])
+  @@map("organisation_applications")
+}
+
+// Organisation onboarding progress tracking
+model OrganisationOnboarding {
+  id                String           @id @default(uuid()) @db.Uuid
+  organisationId    String           @unique @db.Uuid
+  organisation      Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  status            OnboardingStatus @default(INVITED)
+  currentStep       Int              @default(0)
+  completedSteps    Int[]            @default([])
+  // Step completion flags
+  profileCompleted  Boolean          @default(false)
+  branchesCompleted Boolean          @default(false)
+  servicesCompleted Boolean          @default(false)
+  teamCompleted     Boolean          @default(false)
+  reviewCompleted   Boolean          @default(false)
+  // Timestamps
+  lastStepAt        DateTime?
+  completedAt       DateTime?
+  activatedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@map("organisation_onboarding")
 }

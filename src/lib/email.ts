@@ -2,6 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 import {
   renderInvitationEmail,
+  renderOrganisationInvitationEmail,
   renderPasswordResetEmail,
 } from "@/lib/email-templates";
 import { requireEnvironmentVariable } from "@/lib/environment";
@@ -27,6 +28,14 @@ type PasswordResetEmail = {
   expiresAt: Date;
 };
 
+type OrganisationInvitationEmail = {
+  to: string;
+  organisationName: string;
+  adminName: string;
+  acceptUrl: string;
+  expiresAt: Date;
+};
+
 export class EmailDeliveryError extends Error {
   constructor() {
     super("Transactional email could not be delivered.");
@@ -44,6 +53,14 @@ export async function sendInvitationEmail(input: InvitationEmail) {
 
 export async function sendPasswordResetEmail(input: PasswordResetEmail) {
   const template = renderPasswordResetEmail(input);
+  return sendTransactionalEmail({
+    to: input.to,
+    ...template,
+  });
+}
+
+export async function sendOrganisationInvitationEmail(input: OrganisationInvitationEmail) {
+  const template = renderOrganisationInvitationEmail(input);
   return sendTransactionalEmail({
     to: input.to,
     ...template,
