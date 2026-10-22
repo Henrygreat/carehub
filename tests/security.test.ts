@@ -194,6 +194,21 @@ import { GET as getPlatformOrgs } from "@/app/api/v1/platform-admin/organisation
 // Helper Functions
 // =============================================================================
 
+// Type for test users with different roles
+type TestUser = {
+  userId: string;
+  membershipId: string;
+  role: "PLATFORM_ADMIN" | "ORG_ADMIN" | "MANAGER" | "COORDINATOR" | "CARE_WORKER";
+  staffProfileId?: string;
+};
+
+// Type for test organisations
+type TestOrg = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 function request(url: string, method: string, body?: unknown, headers?: Record<string, string>) {
   return new Request(`http://localhost${url}`, {
     method,
@@ -206,7 +221,7 @@ function request(url: string, method: string, body?: unknown, headers?: Record<s
   });
 }
 
-function createTenantContext(org: typeof ORG_A, user: typeof ORG_A_USERS.admin) {
+function createTenantContext(org: TestOrg, user: TestUser) {
   return {
     userId: user.userId,
     membership: {
