@@ -23,7 +23,8 @@
       "Bash(npx prisma format:*)",
       "Bash(npx prisma migrate dev:*)",
       "Bash(cd:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }
