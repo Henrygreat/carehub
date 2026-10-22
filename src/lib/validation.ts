@@ -519,3 +519,95 @@ export const onboardingProfileSchema = z.object({
   cqcProviderName: z.string().trim().max(200).nullable().optional(),
   cqcRegisteredManager: z.string().trim().max(120).nullable().optional(),
 });
+
+// =============================================================================
+// Phase 7: Pilot Feedback Schemas
+// =============================================================================
+
+// Feedback categories
+export const feedbackCategories = [
+  "BUG",
+  "USABILITY",
+  "PERFORMANCE",
+  "SECURITY",
+  "DATA",
+  "FEATURE",
+  "DOCUMENTATION",
+  "OTHER",
+] as const;
+
+// Feedback severity levels
+export const feedbackSeverities = [
+  "CRITICAL",
+  "HIGH",
+  "MEDIUM",
+  "LOW",
+  "SUGGESTION",
+] as const;
+
+// Feedback statuses
+export const feedbackStatuses = [
+  "NEW",
+  "TRIAGED",
+  "IN_PROGRESS",
+  "RESOLVED",
+  "WONT_FIX",
+  "DUPLICATE",
+] as const;
+
+// Feature areas for categorisation
+export const featureAreas = [
+  "Authentication",
+  "Dashboard",
+  "Staff Management",
+  "Client Management",
+  "Care Plans",
+  "Visits",
+  "Shifts",
+  "Rota/Scheduling",
+  "Incidents",
+  "Availability/Absences",
+  "Branches",
+  "Organisation Settings",
+  "Onboarding",
+  "Platform Admin",
+  "Notifications",
+  "Reporting",
+  "Other",
+] as const;
+
+// Create feedback schema (user submission)
+export const pilotFeedbackSchema = z.object({
+  category: z.enum(feedbackCategories),
+  severity: z.enum(feedbackSeverities),
+  featureArea: z.string().min(1).max(100),
+  workflow: z.string().max(200).nullable().optional(),
+  title: z.string().trim().min(5).max(200),
+  description: z.string().trim().min(20).max(5000),
+  reproductionSteps: z.string().max(3000).nullable().optional(),
+  expectedBehavior: z.string().max(1000).nullable().optional(),
+  actualBehavior: z.string().max(1000).nullable().optional(),
+  browserInfo: z.string().max(500).nullable().optional(),
+  screenResolution: z.string().max(50).nullable().optional(),
+  relatedEntityType: z.string().max(50).nullable().optional(),
+  relatedEntityId: z.string().uuid().nullable().optional(),
+});
+
+// Update feedback schema (admin updating status/resolution)
+export const pilotFeedbackUpdateSchema = z.object({
+  status: z.enum(feedbackStatuses).optional(),
+  severity: z.enum(feedbackSeverities).optional(),
+  resolution: z.string().max(2000).nullable().optional(),
+  internalNotes: z.string().max(5000).nullable().optional(),
+});
+
+// Query feedback schema (filter parameters)
+export const pilotFeedbackQuerySchema = z.object({
+  status: z.enum(feedbackStatuses).optional(),
+  severity: z.enum(feedbackSeverities).optional(),
+  category: z.enum(feedbackCategories).optional(),
+  featureArea: z.string().optional(),
+  organisationId: z.string().uuid().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});

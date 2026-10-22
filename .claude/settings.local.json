@@ -25,7 +25,10 @@
       "Bash(cd:*)",
       "Bash(npx eslint:*)",
       "Bash(npx tsx:*)",
-      "Bash(powershell -Command \"Get-ChildItem -Path ''C:\\\\Users\\\\user\\\\Desktop\\\\Ai Receptionist\\\\AI management\\\\src'' -Filter ''*.tsx'' -Recurse | ForEach-Object { $content = Get-Content $_FullName -Raw; if \\($content\\) { $content = $content -replace ''bg-teal-700'', ''bg-[#237E78]''; $content = $content -replace ''bg-teal-600'', ''bg-[#237E78]''; $content = $content -replace ''bg-teal-500'', ''bg-[#237E78]''; Set-Content -Path $_FullName -Value $content -NoNewline } }\")"
+      "Bash(powershell -Command \"Get-ChildItem -Path ''C:\\\\Users\\\\user\\\\Desktop\\\\Ai Receptionist\\\\AI management\\\\src'' -Filter ''*.tsx'' -Recurse | ForEach-Object { $content = Get-Content $_FullName -Raw; if \\($content\\) { $content = $content -replace ''bg-teal-700'', ''bg-[#237E78]''; $content = $content -replace ''bg-teal-600'', ''bg-[#237E78]''; $content = $content -replace ''bg-teal-500'', ''bg-[#237E78]''; Set-Content -Path $_FullName -Value $content -NoNewline } }\")",
+      "Bash(wc:*)",
+      "Bash(node:*)",
+      "Bash(npx vitest:*)"
     ]
   }
 }

@@ -231,6 +231,8 @@ model Organisation {
   // Phase 6: Onboarding
   applications            OrganisationApplication[]
   onboarding              OrganisationOnboarding?
+  // Phase 7: Pilot Feedback
+  pilotFeedback           PilotFeedback[]
 
   @@map("organisations")
 }
@@ -255,6 +257,9 @@ model User {
   platformAuditLogs       PlatformAuditLog[]
   // Phase 6: Application reviews
   reviewedApplications    OrganisationApplication[]
+  // Phase 7: Pilot Feedback
+  submittedFeedback       PilotFeedback[]           @relation("FeedbackSubmitter")
+  resolvedFeedback        PilotFeedback[]           @relation("FeedbackResolver")
 
   @@map("users")
 }
@@ -1007,4 +1012,86 @@ model OrganisationOnboarding {
   updatedAt         DateTime         @updatedAt
 
   @@map("organisation_onboarding")
+}
+
+// =============================================================================
+// Phase 7: Pilot Feedback Models
+// =============================================================================
+
+enum FeedbackSeverity {
+  CRITICAL    // Blocks workflow, no workaround
+  HIGH        // Major impact, workaround exists
+  MEDIUM      // Moderate impact, usable
+  LOW         // Minor inconvenience
+  SUGGESTION  // Feature request or improvement
+}
+
+enum FeedbackStatus {
+  NEW         // Just submitted
+  TRIAGED     // Reviewed and prioritised
+  IN_PROGRESS // Being worked on
+  RESOLVED    // Fix deployed
+  WONT_FIX    // Declined with reason
+  DUPLICATE   // Duplicate of another issue
+}
+
+enum FeedbackCategory {
+  BUG           // Something is broken
+  USABILITY     // Difficult to use
+  PERFORMANCE   // Slow or unresponsive
+  SECURITY      // Security concern
+  DATA          // Data issue or missing data
+  FEATURE       // Missing feature
+  DOCUMENTATION // Unclear or missing documentation
+  OTHER         // Other feedback
+}
+
+// Pilot feedback submissions
+model PilotFeedback {
+  id               String            @id @default(uuid()) @db.Uuid
+  // Organisation context (optional - platform admin feedback has no org)
+  organisationId   String?           @db.Uuid
+  organisation     Organisation?     @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  // Submitter
+  submittedById    String            @db.Uuid
+  submittedBy      User              @relation("FeedbackSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+  submittedByRole  Role
+  // Feedback details
+  category         FeedbackCategory
+  severity         FeedbackSeverity
+  status           FeedbackStatus    @default(NEW)
+  // What feature or workflow
+  featureArea      String            // e.g., "Staff Management", "Rota", "Onboarding"
+  workflow         String?           // e.g., "Creating a new staff member"
+  // Description
+  title            String
+  description      String
+  reproductionSteps String?          // How to reproduce (for bugs)
+  expectedBehavior String?           // What should happen
+  actualBehavior   String?           // What actually happens
+  // Browser/device info (captured automatically)
+  browserInfo      String?
+  screenResolution String?
+  // Resolution
+  resolution       String?
+  resolvedAt       DateTime?
+  resolvedById     String?           @db.Uuid
+  resolvedBy       User?             @relation("FeedbackResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  // Related entities
+  relatedEntityType String?          // e.g., "Client", "Visit", "StaffProfile"
+  relatedEntityId  String?
+  // Screenshots/attachments (URLs if uploaded)
+  attachments      String[]          @default([])
+  // Internal notes
+  internalNotes    String?
+  // Timestamps
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([organisationId, status])
+  @@index([status, severity])
+  @@index([category, status])
+  @@index([submittedById])
+  @@index([createdAt])
+  @@map("pilot_feedback")
 }
